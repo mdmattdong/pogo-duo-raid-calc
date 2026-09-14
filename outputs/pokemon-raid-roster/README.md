@@ -70,6 +70,7 @@ Mega, Primal, and Mega Rayquaza handling:
 
 - Pokemon with an available Mega Evolution or Primal Reversion and `Can Mega/Primal` checked in the roster box are evaluated separately as `slot 0`.
 - For Pokemon with multiple Mega forms, such as Charizard X/Y, use `mega_forms` to choose which forms are ready. Values can be separated by `|`, `/`, `;`, or commas, such as `Mega Charizard X|Mega Charizard Y`. If `can_mega` is true and `mega_forms` is blank, the legacy behavior is to allow all available Mega/Primal forms.
+- Eligible Mega forms automatically get their additional `+` Charged Attack while evaluated as slot 0. These moves are form-specific, so Mega Mewtwo X gets `Dynamic Punch+`, Mega Mewtwo Y gets `Future Sight+`, Mega Raichu X gets `Volt Tackle+`, Mega Raichu Y gets `Zap Cannon+`, and other announced forms use their matching `+` move. These automatic moves are considered even when `use entered moves` is on, because they are attached to the Mega form rather than the base Pokemon's roster row.
 - A Poke Genie export without `can_mega` starts unchecked; saving a Mega/Primal-capable roster spot writes `can_mega` and, when relevant, `mega_forms` back into the CSV.
 - Slot 0 is displayed separately from the six regular attackers, but potential-upgrade cutoffs assume the Mega/Primal takes one battle slot when it is available.
 - Primal Groudon, Primal Kyogre, and Mega Rayquaza are prioritized when their background boost applies:

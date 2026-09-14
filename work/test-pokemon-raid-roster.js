@@ -103,6 +103,34 @@ if (charizardForms.length < 2) throw new Error("Expected Charizard to have multi
 if (getEligibleMegaForms(charizardXOnly).map(megaFormToken).join("|") !== "Mega Charizard X") throw new Error("Mega form filter should allow only Charizard X");
 if (getEligibleMegaForms(charizardYOnly).map(megaFormToken).join("|") !== "Mega Charizard Y") throw new Error("Mega form filter should allow only Charizard Y");
 if (getEligibleMegaForms(charizardBothLegacy).length !== charizardForms.length) throw new Error("Blank mega_forms with can_mega should keep legacy all-form behavior");
+const mewtwo = state.pokemon.find(p => p.name === "Mewtwo" && p.form === "Normal");
+const megaMewtwoX = state.pokemon.find(p => p.name === "Mega Mewtwo X" && p.form === "Mega");
+const megaMewtwoY = state.pokemon.find(p => p.name === "Mega Mewtwo Y" && p.form === "MegaY");
+if (getMegaAdditionalChargedMoves(mewtwo).length) throw new Error("Base Mewtwo should not receive Mega additional charged moves");
+if (!getMegaAdditionalChargedMoves(megaMewtwoX).includes("Dynamic Punch+") || !getMegaAdditionalChargedMoves(megaMewtwoY).includes("Future Sight+")) {
+  throw new Error("Mega Mewtwo X/Y should receive form-specific additional charged attacks");
+}
+const xMoveOptions = getPokemonMoveOptions(megaMewtwoX, false, false, false);
+const yMoveOptions = getPokemonMoveOptions(megaMewtwoY, false, false, false);
+for (const [megaKey, moveNames] of MEGA_ADDITIONAL_CHARGED_MOVES.entries()) {
+  for (const moveName of moveNames) {
+    if (!findMove(moveName)) throw new Error("Mega additional charged move is missing from move data: " + megaKey + " " + moveName);
+  }
+}
+if (!xMoveOptions.charged.some(move => move.name === "Dynamic Punch+") || !yMoveOptions.charged.some(move => move.name === "Future Sight+")) {
+  throw new Error("Mega additional charged attacks should be in the Mega move pools without Elite moves");
+}
+const xCurrentMoveFilter = constrainMoves(xMoveOptions.charged, ["Psystrike"], true, getMegaAdditionalChargedMoves(megaMewtwoX));
+const yCurrentMoveFilter = constrainMoves(yMoveOptions.charged, ["Shadow Ball"], true, getMegaAdditionalChargedMoves(megaMewtwoY));
+if (!xCurrentMoveFilter.some(move => move.name === "Dynamic Punch+") || !yCurrentMoveFilter.some(move => move.name === "Future Sight+")) {
+  throw new Error("Mega additional charged attacks should stay available when using entered base Pokemon moves");
+}
+const fightingEnemy = buildAttackTypeEnemy("Fighting");
+const mewtwoMegaEntry = {level: 40, ivs: {atk: 15, def: 15, hp: 15}, shadow: false, purified: false, fastMove: "Psycho Cut", chargedMove: "Psystrike", chargedMove2: ""};
+const megaMewtwoXResult = rankPokemon(megaMewtwoX, mewtwoMegaEntry, fightingEnemy, {...shadowSettings, requiredAttackType: "Fighting", useCurrentMoves: true, allowElite: true});
+if (!megaMewtwoXResult || megaMewtwoXResult.chargedMove.name !== "Dynamic Punch+") {
+  throw new Error("Mega Mewtwo X should use Dynamic Punch+ as its Mega-form additional charged move");
+}
 const megaAscensionBases = ["Victreebel", "Dragonite", "Malamar"].map(name => state.pokemon.find(p => p.name === name && p.form === "Normal"));
 if (megaAscensionBases.some(pokemon => !pokemon || !getMegaForms(pokemon).some(mega => mega.name === "Mega " + pokemon.name))) {
   throw new Error("Expected Mega Ascension forms to be available from the roster Mega checkbox lookup");

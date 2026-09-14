@@ -249,6 +249,28 @@ const charizardForms = getMegaForms(charizard);
 if (charizardForms.length < 2) throw new Error("Expected Charizard to have multiple Mega forms in raid boss calculator");
 if (getEligibleMegaForms({pokemon: charizard, canMega: true, megaForms: ["Mega Charizard X"]}).map(megaFormToken).join("|") !== "Mega Charizard X") throw new Error("Raid boss calculator should allow only Charizard X when selected");
 if (getEligibleMegaForms({pokemon: charizard, canMega: true, megaForms: ["Mega Charizard Y"]}).map(megaFormToken).join("|") !== "Mega Charizard Y") throw new Error("Raid boss calculator should allow only Charizard Y when selected");
+const mewtwo = state.pokemon.find(p => p.name === "Mewtwo" && p.form === "Normal");
+const megaMewtwoX = state.pokemon.find(p => p.name === "Mega Mewtwo X" && p.form === "Mega");
+const megaMewtwoY = state.pokemon.find(p => p.name === "Mega Mewtwo Y" && p.form === "MegaY");
+if (getMegaAdditionalChargedMoves(mewtwo).length) throw new Error("Base Mewtwo should not receive Mega additional charged moves in raid boss calculator");
+if (!getMegaAdditionalChargedMoves(megaMewtwoX).includes("Dynamic Punch+") || !getMegaAdditionalChargedMoves(megaMewtwoY).includes("Future Sight+")) {
+  throw new Error("Raid boss calculator should assign Mega Mewtwo additional charged attacks by Mega form");
+}
+const xMoveOptions = getPokemonMoveOptions(megaMewtwoX, false, false, false);
+const yMoveOptions = getPokemonMoveOptions(megaMewtwoY, false, false, false);
+const xCurrentMoveFilter = constrainMoves(xMoveOptions.charged, ["Psystrike"], true, getMegaAdditionalChargedMoves(megaMewtwoX));
+const yCurrentMoveFilter = constrainMoves(yMoveOptions.charged, ["Shadow Ball"], true, getMegaAdditionalChargedMoves(megaMewtwoY));
+if (!xMoveOptions.charged.some(move => move.name === "Dynamic Punch+") || !yMoveOptions.charged.some(move => move.name === "Future Sight+")) {
+  throw new Error("Mega additional charged attacks should be in raid Mega move pools without Elite moves");
+}
+if (!xCurrentMoveFilter.some(move => move.name === "Dynamic Punch+") || !yCurrentMoveFilter.some(move => move.name === "Future Sight+")) {
+  throw new Error("Mega additional charged attacks should stay available on raid pages when using entered base Pokemon moves");
+}
+const megaMewtwoEntry = {level: 40, ivs: {atk: 15, def: 15, hp: 15}, shadow: false, purified: false, fastMove: "Psycho Cut", chargedMove: "Psystrike", chargedMove2: ""};
+const megaMewtwoXKyurem = rankPokemon(megaMewtwoX, megaMewtwoEntry, buildRaidBossEnemy(kyuremGroup.base, readSettings()), shadowSettings);
+if (!megaMewtwoXKyurem || megaMewtwoXKyurem.chargedMove.name !== "Dynamic Punch+") {
+  throw new Error("Mega Mewtwo X should use Dynamic Punch+ against fighting-weak raid bosses");
+}
 
 el.bossSelect.value = shadowMewtwoGroup.key;
 updateBossShadowToggle();

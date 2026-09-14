@@ -118,6 +118,22 @@ const FIELDLESS_MEGA_BOOSTS = new Map([
   ["384:Mega", ["Flying", "Psychic", "Dragon"]]
 ]);
 
+const MEGA_ADDITIONAL_CHARGED_MOVES = new Map([
+  ["150:Mega", ["Dynamic Punch+"]],
+  ["150:MegaY", ["Future Sight+"]],
+  ["652:Mega", ["Seed Bomb+"]],
+  ["655:Mega", ["Mystical Fire+"]],
+  ["658:Mega", ["Surf+"]],
+  ["26:Mega", ["Volt Tackle+"]],
+  ["26:MegaY", ["Zap Cannon+"]],
+  ["227:Mega", ["Drill Peck+"]],
+  ["870:Mega", ["Brick Break+"]],
+  ["121:Mega", ["Liquidation+"]],
+  ["71:Mega", ["Acid Spray+"]],
+  ["687:Mega", ["Psybeam+"]],
+  ["149:Mega", ["Outrage+"]]
+]);
+
 const RAID_SAMPLE_CSV = `account,name,form,level,atk_iv,def_iv,hp_iv,shadow,purified,fast_move,charged_move,charged_move_2,cp,can_mega,notes
 Main,Groudon,Normal,41,15,14,15,false,false,Mud Shot,Precipice Blades,Fire Punch,,true,Primal background option
 Main,Kartana,Normal,35,15,13,14,false,false,Razor Leaf,Leaf Blade,,,false,Grass damage
@@ -777,7 +793,7 @@ function rankPokemon(pokemon, entry, enemy, settings) {
   const adventureDamageMultiplier = getAdventureDamageMultiplier(adventureEffects, enemy);
   const moveOptions = getPokemonMoveOptions(pokemon, entry.shadow, settings.allowElite, entry.purified);
   const fms = constrainMoves(moveOptions.fast, entry.fastMove, settings.useCurrentMoves);
-  const cms = constrainMoves(moveOptions.charged, getEntryChargedMoveNames(entry), settings.useCurrentMoves);
+  const cms = constrainMoves(moveOptions.charged, getEntryChargedMoveNames(entry), settings.useCurrentMoves, getMegaAdditionalChargedMoves(pokemon));
   if (!fms.length || !cms.length) return null;
 
   let best = null;
@@ -828,7 +844,7 @@ function rankPokemon(pokemon, entry, enemy, settings) {
 
 function getPokemonMoveOptions(pokemon, isShadow, allowElite, includeReturn = false) {
   const fastNames = [...(pokemon.fm || [])];
-  const chargedNames = [...(pokemon.cm || [])];
+  const chargedNames = [...(pokemon.cm || []), ...getMegaAdditionalChargedMoves(pokemon)];
 
   if (allowElite) {
     fastNames.push(...(pokemon.elite_fm || []));
@@ -847,31 +863,33 @@ function getPokemonMoveOptions(pokemon, isShadow, allowElite, includeReturn = fa
   return {fast, charged};
 }
 
-function constrainMoves(options, enteredMove, useEntered) {
+function constrainMoves(options, enteredMove, useEntered, alwaysInclude = []) {
   const enteredMoves = Array.isArray(enteredMove) ? enteredMove : [enteredMove];
   const enteredNames = enteredMoves.map(move => String(move || "").trim()).filter(Boolean);
   if (!useEntered || !enteredNames.length) return options;
 
   const legalMoves = [];
   const seen = new Set();
-  for (const name of enteredNames) {
-    if (cleanName(name) === "hiddenpower") {
-      for (const option of options.filter(move => isHiddenPowerMove(move.name))) {
-        const optionKey = cleanName(option.name);
-        if (seen.has(optionKey)) continue;
-        seen.add(optionKey);
-        legalMoves.push(option);
-      }
-      continue;
-    }
-    const move = findMove(name);
-    if (!move) continue;
+  const addLegalMove = move => {
+    if (!move) return;
     const key = cleanName(move.name);
-    if (seen.has(key)) continue;
+    if (seen.has(key)) return;
     if (options.some(option => cleanName(option.name) === key)) {
       seen.add(key);
       legalMoves.push(move);
     }
+  };
+  for (const name of enteredNames) {
+    if (cleanName(name) === "hiddenpower") {
+      for (const option of options.filter(move => isHiddenPowerMove(move.name))) {
+        addLegalMove(option);
+      }
+      continue;
+    }
+    addLegalMove(findMove(name));
+  }
+  for (const name of alwaysInclude) {
+    addLegalMove(findMove(name));
   }
   return legalMoves;
 }
@@ -2301,6 +2319,10 @@ function getFieldlessBoostTypes(pokemon) {
 function getMegaBoostTypes(pokemon) {
   const fieldless = getFieldlessBoostTypes(pokemon);
   return fieldless.length ? fieldless : pokemon.types || [];
+}
+
+function getMegaAdditionalChargedMoves(pokemon) {
+  return MEGA_ADDITIONAL_CHARGED_MOVES.get(`${pokemon.id}:${pokemon.form}`) || [];
 }
 
 function getMegaPriority(pokemon, enemy) {

@@ -6,6 +6,8 @@ The raid boss calculator shows each account's estimated boss-HP damage capacity 
 
 For Mega Ascension, the calculator treats Mega Victreebel, Mega Dragonite, Mega Malamar, Mega Falinks, Mega Skarmory, Mega Raichu X, and Mega Raichu Y as Tier-4 Mega raids even when the downloaded source data still flags their debut forms as tier 8.
 
+Eligible Mega forms also receive their announced additional `+` Charged Attack while evaluated as the active Mega slot, such as Mega Mewtwo X with `Dynamic Punch+` and Mega Mewtwo Y with `Future Sight+`.
+
 ## Privacy And Public GitHub Safety
 
 This project does not need passwords, API keys, account credentials, browser session cookies, or account numbers. Real roster data should stay local to your browser or in ignored CSV files.
