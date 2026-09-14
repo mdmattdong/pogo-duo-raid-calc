@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pokemon GO Raid Roster Evaluator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Pokemon GO raid team planning</p>
+        <h1>Roster-level type teams</h1>
+      </div>
+      <div class="topbar-actions">
+        <a class="text-button" href="raid-boss.html">Raid boss</a>
+        <a class="text-button" href="manual-entry.html">Manual entry</a>
+        <div id="data-status" class="status-pill">Loading DialgaDex data...</div>
+      </div>
+    </header>
+
+    <section class="control-surface" aria-label="Team calculation settings">
+      <div class="field">
+        <label for="metric-select">Rank by</label>
+        <select id="metric-select">
+          <option value="eDPS" selected>eDPS</option>
+          <option value="DPS">DPS</option>
+          <option value="TDO">TDO</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="party-size">Party power</label>
+        <select id="party-size">
+          <option value="1">1 player</option>
+          <option value="2" selected>2 players</option>
+          <option value="3">3 players</option>
+          <option value="4">4 players</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="team-size">eDPS team size</label>
+        <select id="team-size">
+          <option value="6" selected>6-stack</option>
+          <option value="1">solo slot</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="relobby-time">Relobby seconds</label>
+        <input id="relobby-time" type="number" min="0" max="300" step="1" value="10">
+      </div>
+
+      <div class="field">
+        <label for="upgrade-level">Upgrade level</label>
+        <input id="upgrade-level" type="number" min="1" max="51" step="0.5" value="40">
+      </div>
+
+      <div class="check-row">
+        <label><input id="allow-elite" type="checkbox" checked> allow Elite / legacy moves</label>
+        <label><input id="use-current-moves" type="checkbox" checked> use entered moves when present</label>
+      </div>
+    </section>
+
+    <section class="roster-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Your roster CSV</h2>
+          <div class="file-line">
+            <label class="file-button" for="csv-file">Load CSV</label>
+            <input id="csv-file" type="file" accept=".csv,text/csv">
+            <button id="sample-button" type="button">Sample</button>
+            <button id="grass-sample-button" type="button">Grass sample</button>
+            <button id="clear-button" type="button">Clear</button>
+          </div>
+        </div>
+        <textarea id="roster-input" spellcheck="false"></textarea>
+        <p class="hint">
+          Accepted columns include: account, name/pokemon, form, level, cp, atk_iv, def_iv, hp_iv, shadow, purified, can_mega, mega_forms, fast_move, charged_move, charged_move_2, notes.
+        </p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Team snapshot</h2>
+          <button id="calculate-button" type="button">Calculate</button>
+        </div>
+        <div class="summary-grid">
+          <div>
+            <span class="summary-label">Roster rows</span>
+            <strong id="summary-rows">0</strong>
+          </div>
+          <div>
+            <span class="summary-label">Usable</span>
+            <strong id="summary-matched">0</strong>
+          </div>
+          <div>
+            <span class="summary-label">Accounts</span>
+            <strong id="summary-six">-</strong>
+          </div>
+        </div>
+        <div id="messages" class="messages" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="results-section" aria-label="Best attacker teams by type">
+      <div class="results-head">
+        <h2>Best teams by type</h2>
+        <p id="type-context">Each account's best reusable attacker teams will appear after calculation.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="type-table">
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Type</th>
+              <th>Mega slot 0</th>
+              <th>Top six regular attackers</th>
+              <th>Team score</th>
+              <th>Upgrade watch</th>
+            </tr>
+          </thead>
+          <tbody id="type-results-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="results-section" aria-label="Type upgrade candidates">
+      <div class="results-head">
+        <h2>Type upgrade candidates</h2>
+        <p id="upgrade-context">Potential active-lineup movers will appear after calculation.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="upgrade-table">
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Type</th>
+              <th>Pokemon</th>
+              <th>Upgrade</th>
+              <th>Before</th>
+              <th>After</th>
+              <th>Gain</th>
+              <th>Active check</th>
+            </tr>
+          </thead>
+          <tbody id="upgrade-results-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="results-section" aria-label="Roster box">
+      <div class="results-head">
+        <h2>Roster box</h2>
+        <p id="roster-box-context">Loaded Pokemon will appear after calculation.</p>
+        <label class="search-field" for="roster-search">
+          <span>Search roster</span>
+          <input id="roster-search" type="search" placeholder="Pokemon, account, move, type, note">
+        </label>
+      </div>
+      <div id="roster-box" class="roster-box"></div>
+    </section>
+  </main>
+
+  <div id="quick-edit-modal" class="quick-edit-modal" hidden>
+    <div class="quick-edit-backdrop" data-quick-edit-action="close"></div>
+    <section class="quick-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="quick-edit-title">
+      <button class="quick-edit-close" type="button" data-quick-edit-action="close" aria-label="Close quick edit">x</button>
+      <div class="quick-edit-head">
+        <img id="quick-edit-sprite" class="pokemon-sprite" src="" alt="" loading="eager">
+        <div>
+          <h2 id="quick-edit-title">Quick edit</h2>
+          <p id="quick-edit-meta" class="subtle"></p>
+        </div>
+      </div>
+      <form id="quick-edit-form" class="quick-edit-form">
+        <div class="quick-edit-fields">
+          <label class="edit-field">
+            <span>Level</span>
+            <input id="quick-edit-level" type="number" min="1" max="51" step="0.5" inputmode="decimal">
+          </label>
+          <label class="edit-field">
+            <span>CP</span>
+            <input id="quick-edit-cp" type="number" min="10" step="1" inputmode="numeric">
+          </label>
+        </div>
+        <div class="quick-edit-actions">
+          <a id="quick-edit-full-link" href="#roster-box" data-quick-edit-action="full">Full roster details</a>
+          <button type="button" data-quick-edit-action="close">Cancel</button>
+          <button id="quick-edit-save" type="submit">Save</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "pokemon-go-raid-roster-toolkit",
+  "version": "0.1.0",
+  "description": "Static Pokemon GO raid roster evaluator and raid boss team calculator.",
+  "type": "commonjs",
+  "scripts": {
+    "serve": "python3 -m http.server 8000",
+    "check": "node --check outputs/pokemon-raid-roster/app.js && node --check outputs/pokemon-raid-roster/manual-entry.js && node --check outputs/pokemon-raid-roster/raid-boss.js && node --check outputs/pokemon-raid-roster/config.js && node --check outputs/pokemon-raid-roster/config.example.js",
+    "test": "npm run check && node work/test-pokemon-raid-roster.js && node work/test-manual-entry.js && node work/test-raid-boss-calculator.js",
+    "test:smoke": "node work/playwright-smoke.js && node work/manual-entry-smoke.js && node work/raid-boss-smoke.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.55.0"
+  }
+}

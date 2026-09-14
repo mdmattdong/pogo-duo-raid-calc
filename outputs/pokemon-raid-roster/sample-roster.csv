@@ -1,0 +1,9 @@
+account,name,form,level,atk_iv,def_iv,hp_iv,shadow,purified,fast_move,charged_move,charged_move_2,cp,can_mega,notes
+Main,Groudon,Normal,40,15,14,15,false,false,Mud Shot,Precipice Blades,Fire Punch,,true,Ground anchor
+Main,Mamoswine,Normal,35,15,12,14,true,false,Powder Snow,Avalanche,,,false,Shadow ice
+Main,Lucario,Normal,36.5,14,15,13,false,false,Force Palm,Aura Sphere,,,false,Fighting
+Main,Metagross,Normal,,15,15,14,true,false,Bullet Punch,Meteor Mash,,3840,false,Level inferred from CP
+Alt,Garchomp,Normal,36,15,13,12,false,false,Mud Shot,Earth Power,,,false,Ground
+Alt,Excadrill,Normal,33,14,14,13,false,false,Mud-Slap,Scorching Sands,,,false,Ground
+Alt,Terrakion,Normal,30,15,13,13,false,false,Double Kick,Sacred Sword,,,false,Fighting
+Alt,Mamoswine,Normal,31,14,12,12,false,false,Mud-Slap,High Horsepower,,,false,Ground coverage

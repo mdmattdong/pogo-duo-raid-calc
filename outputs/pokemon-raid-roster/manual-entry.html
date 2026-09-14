@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pokemon GO Manual Roster Entry</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Pokemon GO raid team planning</p>
+        <h1>Manual roster entry</h1>
+      </div>
+      <div class="topbar-actions">
+        <a class="text-button" href="index.html">Evaluator</a>
+        <a class="text-button" href="raid-boss.html">Raid boss</a>
+        <div id="manual-status" class="status-pill">Loading Pokemon data...</div>
+      </div>
+    </header>
+
+    <section class="roster-grid manual-entry-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Pokemon details</h2>
+          <div class="file-line">
+            <button id="reset-entry-button" type="button">Reset</button>
+            <button id="add-entry-button" type="button">Add row</button>
+          </div>
+        </div>
+
+        <form id="manual-entry-form" class="roster-edit-form">
+          <div class="roster-field-grid">
+            <label class="edit-field">
+              <span>Player</span>
+              <select id="entry-account" name="account"></select>
+            </label>
+            <label class="edit-field autocomplete-field">
+              <span>Pokemon</span>
+              <input id="entry-name" name="name" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="pokemon-suggestions" required>
+              <div id="pokemon-suggestions" class="autocomplete-list is-hidden" role="listbox"></div>
+            </label>
+            <label class="edit-field">
+              <span>Form</span>
+              <input id="entry-form" name="form" value="Normal" autocomplete="off">
+            </label>
+            <label class="edit-field">
+              <span>CP</span>
+              <input id="entry-cp" name="cp" type="number" min="10" step="1" inputmode="numeric">
+            </label>
+            <label class="edit-field">
+              <span>HP</span>
+              <input id="entry-current-hp" name="current_hp" type="number" min="1" step="1" inputmode="numeric">
+            </label>
+            <label class="edit-field">
+              <span>Level</span>
+              <input id="entry-level" name="level" type="number" min="1" max="51" step="0.5" inputmode="decimal">
+            </label>
+            <label class="edit-field">
+              <span>Atk IV</span>
+              <input id="entry-atk" name="atk_iv" type="number" min="0" max="15" step="1" inputmode="numeric" value="15">
+            </label>
+            <label class="edit-field">
+              <span>Def IV</span>
+              <input id="entry-def" name="def_iv" type="number" min="0" max="15" step="1" inputmode="numeric" value="15">
+            </label>
+            <label class="edit-field">
+              <span>HP IV</span>
+              <input id="entry-hp" name="hp_iv" type="number" min="0" max="15" step="1" inputmode="numeric" value="15">
+            </label>
+            <label class="edit-field">
+              <span>Fast move</span>
+              <select id="entry-fast" name="fast_move"></select>
+            </label>
+            <label id="entry-hidden-power-wrap" class="edit-field is-hidden">
+              <span>Hidden Power type</span>
+              <select id="entry-hidden-power-type"></select>
+            </label>
+            <label class="edit-field">
+              <span>Charged move</span>
+              <select id="entry-charged" name="charged_move"></select>
+            </label>
+            <label class="edit-field">
+              <span>Charged move 2</span>
+              <select id="entry-charged-2" name="charged_move_2"></select>
+            </label>
+            <label class="edit-field">
+              <span>Notes</span>
+              <input id="entry-notes" name="notes" autocomplete="off">
+            </label>
+            <div class="manual-checks">
+              <label class="check-field"><input id="entry-shadow" name="shadow" type="checkbox"> Shadow</label>
+              <label class="check-field"><input id="entry-purified" name="purified" type="checkbox"> Purified</label>
+              <label id="entry-can-mega-wrap" class="check-field is-hidden"><input id="entry-can-mega" name="can_mega" type="checkbox"> Can Mega/Primal</label>
+            </div>
+            <div id="entry-mega-form-options" class="mega-form-options is-hidden"></div>
+          </div>
+        </form>
+
+        <div id="entry-preview" class="manual-preview">
+          <div class="sprite-placeholder">?</div>
+          <div>
+            <div class="pokemon-name">No Pokemon selected</div>
+            <div class="subtle">Move options will appear after a match.</div>
+          </div>
+        </div>
+
+        <div class="manual-inference">
+          <div class="visual-section-label">CP + HP inference</div>
+          <div id="inference-summary" class="subtle">Choose a Pokemon and enter CP plus HP to find possible level and IV matches.</div>
+          <div class="manual-inference-controls">
+            <select id="inference-select" disabled></select>
+            <button id="apply-inference-button" type="button" disabled>Apply match</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Roster CSV</h2>
+          <div class="file-line">
+            <button id="copy-csv-button" type="button">Copy</button>
+            <button id="download-csv-button" type="button">Download</button>
+            <button id="use-roster-button" type="button">Use roster</button>
+          </div>
+        </div>
+        <div class="summary-grid">
+          <div>
+            <span class="summary-label">Rows</span>
+            <strong id="manual-row-count">0</strong>
+          </div>
+          <div>
+            <span class="summary-label">Accounts</span>
+            <strong id="manual-account-count">0</strong>
+          </div>
+          <div>
+            <span class="summary-label">Mega ready</span>
+            <strong id="manual-mega-count">0</strong>
+          </div>
+        </div>
+        <textarea id="manual-csv-output" class="manual-csv-output" spellcheck="false" readonly></textarea>
+        <div id="manual-messages" class="messages" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="results-section" aria-label="Manual roster rows">
+      <div class="results-head">
+        <h2>Entered rows</h2>
+        <div class="file-line">
+          <label class="compact-field" for="row-player-filter">
+            <span>Player</span>
+            <select id="row-player-filter"></select>
+          </label>
+          <button id="clear-rows-button" type="button">Clear rows</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="manual-table">
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Pokemon</th>
+              <th>CP</th>
+              <th>IVs</th>
+              <th>Moves</th>
+              <th>Tags</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="manual-rows-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="manual-entry.js"></script>
+</body>
+</html>

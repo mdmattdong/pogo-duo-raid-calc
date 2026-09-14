@@ -1,0 +1,20 @@
+account,name,form,level,atk_iv,def_iv,hp_iv,shadow,purified,fast_move,charged_move,charged_move_2,cp,can_mega,notes
+Main,Groudon,Normal,41,15,14,15,false,false,Mud Shot,Precipice Blades,Fire Punch,,true,Primal Groudon should win Grass slot 0 by background boost
+Main,Kartana,Normal,35,15,13,14,false,false,Razor Leaf,Leaf Blade,,,false,Fast Grass damage
+Main,Sceptile,Normal,37,14,14,13,false,false,Bullet Seed,Frenzy Plant,,,true,Mega Sceptile option
+Main,Venusaur,Normal,40,14,15,15,false,false,Vine Whip,Frenzy Plant,,,true,Mega Venusaur option
+Main,Roserade,Normal,34.5,15,12,13,false,false,Magical Leaf,Grass Knot,,,false,Strong non-legendary Grass
+Main,Zarude,Normal,33,13,15,14,false,false,Vine Whip,Power Whip,,,false,Mythical Grass attacker
+Main,Tangrowth,Normal,32.5,14,13,15,false,false,Vine Whip,Power Whip,,,false,Bulky Grass
+Main,Chesnaught,Normal,30,13,13,13,false,false,Vine Whip,Frenzy Plant,,,false,Upgrade watch candidate
+Main,Victreebel,Normal,29,15,10,12,true,false,Razor Leaf,Leaf Blade,,,false,Shadow Grass spice
+Main,Meowscarada,Normal,28,15,13,12,false,false,Leafage,Play Rough,Night Slash,,false,Needs a Grass charged move plus levels
+Alt,Sceptile,Normal,40.5,15,14,14,false,false,Bullet Seed,Frenzy Plant,,,true,Mega Sceptile should be slot 0 here
+Alt,Venusaur,Normal,38,15,13,15,false,false,Vine Whip,Frenzy Plant,,,true,Mega Venusaur backup
+Alt,Kartana,Normal,31,14,12,13,false,false,Razor Leaf,Leaf Blade,,,false,Lower-level Kartana
+Alt,Tapu Bulu,Normal,33,14,15,12,false,false,Bullet Seed,Grass Knot,,,false,Grass Fairy coverage
+Alt,Meowscarada,Normal,32,15,13,12,false,false,Leafage,Flower Trick,Play Rough,,false,Newer Grass attacker
+Alt,Rillaboom,Normal,30,15,12,13,false,false,Razor Leaf,Frenzy Plant,,,false,Power-up candidate
+Alt,Torterra,Normal,34,13,15,14,true,false,Razor Leaf,Frenzy Plant,,,false,Shadow Grass Ground
+Alt,Decidueye,Normal,31,14,13,14,false,false,Magical Leaf,Frenzy Plant,,,false,Community Day move
+Alt,Exeggutor,Alola,29.5,14,12,15,false,false,Bullet Seed,Solar Beam,,,false,Dragon Grass bench option
