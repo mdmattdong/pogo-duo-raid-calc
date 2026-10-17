@@ -93,3 +93,52 @@ Raid boss calculator notes:
 - Each account plan shows estimated boss-HP damage capacity based on that account's boosted DPS over the full raid timer, so a strong account can show more than 100% on easier bosses. The percentage reflects Party Power plus the selected Mega/Primal pair.
 
 The formulas are a practical local implementation of DialgaDex/GamePress-style raid DPS, TDO, and eDPS. This is intended for "which six of mine should I bring?" decisions, not frame-perfect raid simulation.
+
+## Mega Level 4 update — October 17, 2026
+
+Both calculators now have a **Mega Level (eligible forms)** selector, defaulting to
+**4 · Super Max**. This is a calculation assumption for eligible Mega forms;
+it does not mark your owned Pokémon as having unlocked Mega Level 4. Choose
+1–3 when comparing a lower Mega Level. Your entered Pokémon levels, IVs,
+normal moves, and Mega availability are unchanged. The selected Mega Level
+applies to all eligible forms in that calculation.
+
+At Mega Levels 1/2/3/4, the temporary Plus charged move uses 1.0/1.1/1.2/1.3×
+base power. At Mega Level 4 only, eligible Mega attackers also get two temporary
+Pokémon levels (a level 50 attacker battles at level 52). Result cards show the
+battle level and CP; roster editing continues to show the entered base level.
+Normal moves, non-Mega Pokémon, Primals, and Mega forms without Super Max
+eligibility do not receive these bonuses. Plus moves remain available when
+using entered normal moves and do not require an Elite TM.
+
+The current 17 eligible forms are Mega Beedrill, Raichu X/Y, Victreebel, Starmie,
+Dragonite, Mewtwo X/Y, Skarmory, Houndoom, Manectric, Staraptor, Chesnaught,
+Delphox, Greninja, Malamar, and Falinks. Chandelure's October 31 debut and
+Sableye's November 1 update are future releases as of this data snapshot.
+The public DialgaDex Pokémon and move snapshots in `work/dialgadex-data/`
+were refreshed on October 17, 2026; this directory is also an HTTP fallback
+when both remote data hosts fail. Future released Mega forms with upstream
+`temp_cm` data are picked up automatically.
+
+Before any page initializes, `roster-backup.js` makes a one-time exact snapshot
+of existing roster-related storage under
+`pokemonRaidRosterBeforeMegaLevel4_20261017`. It never overwrites that snapshot
+or rewrites existing roster keys. **Download roster backup** exports both the
+current stored roster and this original snapshot as JSON. Keep the download
+outside browser storage for recovery. It contains the exact CSV and manual-row
+JSON, not just calculated results. If browser storage is blocked or full, the
+page reports that the snapshot could not be saved.
+
+Continue opening the same original file in the same browser/profile: `file://`
+and `http://localhost` have different storage. Filesystem copies and Git do not
+contain the roster in browser storage. The original app files were also archived
+locally before installation; personal data and backups remain ignored by Git.
+
+Sources:
+
+- [Official Mega Finale move list](https://pokemongo.com/news/more-mega-updates-2026)
+- [Official Beedrill and Houndoom update](https://pokemongo.com/en/news/mega-squads-2026)
+- [Official Staraptor debut](https://pokemongo.com/en/news/staraptor-super-mega-raid-day-2026)
+- [Official Manectric update](https://pokemongo.com/news/fall-marathon-buddy-trek-2026)
+- [DialgaDex calculation settings](https://www.dialgadex.com/?strongest=&t=Any)
+- [Public DialgaDex resource data](https://github.com/mgrann03/pokemon-resources)

@@ -105,7 +105,11 @@ const MEGA_ADDITIONAL_CHARGED_MOVES = new Map([
   ["121:Mega", ["Liquidation+"]],
   ["71:Mega", ["Acid Spray+"]],
   ["687:Mega", ["Psybeam+"]],
-  ["149:Mega", ["Outrage+"]]
+  ["149:Mega", ["Outrage+"]],
+  ["15:Mega", ["Fell Stinger+"]],
+  ["229:Mega", ["Dark Pulse+"]],
+  ["398:Mega", ["Brave Bird+"]],
+  ["310:Mega", ["Discharge+"]]
 ]);
 
 const SHADOW_ATTACK_MULTIPLIER = Math.fround(1.2);
@@ -175,7 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
 function bindElements() {
   for (const id of [
     "data-status", "metric-select", "party-size", "team-size", "relobby-time",
-    "allow-elite", "upgrade-level", "use-current-moves", "csv-file",
+    "allow-elite", "mega-level", "upgrade-level", "use-current-moves", "csv-file",
     "sample-button", "grass-sample-button", "clear-button", "calculate-button",
     "roster-input", "summary-rows", "summary-matched", "summary-six",
     "messages", "type-results-body", "type-context", "upgrade-results-body",
@@ -237,7 +241,7 @@ function setupControls() {
 
   for (const input of [
     el.metricSelect, el.partySize, el.teamSize, el.relobbyTime,
-    el.upgradeLevel, el.allowElite, el.useCurrentMoves
+    el.megaLevel, el.upgradeLevel, el.allowElite, el.useCurrentMoves
   ]) {
     input.addEventListener("change", calculate);
   }
@@ -255,7 +259,7 @@ async function loadData() {
     state.pokemon = pokemon.filter(p => p.released !== false && p.fm && p.cm);
     state.fastMoves = fastMoves.map(move => move.name === "Hidden Power" ? {...move, type: "None"} : move);
     state.chargedMoves = chargedMoves;
-    state.moveByName = new Map([...state.fastMoves, ...state.chargedMoves].map(m => [cleanName(m.name), m]));
+    state.moveByName = new Map([...state.fastMoves, ...state.chargedMoves].map(m => [moveKey(m.name), m]));
     state.pokemonNameIndex = buildPokemonNameIndex(state.pokemon);
     state.ready = true;
     setStatus(`Ready: ${state.pokemon.length.toLocaleString()} species/forms loaded`, "ready");
@@ -451,6 +455,7 @@ function readSettings() {
     partySize: Number(el.partySize.value),
     teamSize: Number(el.teamSize.value),
     relobbyTime: Number(el.relobbyTime.value || 10),
+    megaLevel: normalizeMegaLevel(el.megaLevel?.value),
     upgradeLevel: clamp(toNumber(el.upgradeLevel.value, 40), 1, 51),
     allowElite: el.allowElite.checked,
     useCurrentMoves: el.useCurrentMoves.checked,
@@ -612,8 +617,8 @@ function findClosestLevelByCP(pokemon, ivs, targetCp) {
   return best;
 }
 
-function getBattleStats(pokemon, entry) {
-  const stats = getPokemonStats(pokemon, entry.level, entry.ivs, true);
+function getBattleStats(pokemon, entry, megaLevel = 4) {
+  const stats = getPokemonStats(pokemon, getBattleLevel(pokemon, entry, megaLevel), entry.ivs, true);
   return {
     atk: entry.shadow ? stats.atk * SHADOW_ATTACK_MULTIPLIER : stats.atk,
     def: entry.shadow ? stats.def / SHADOW_DAMAGE_TAKEN_MULTIPLIER : stats.def,
@@ -622,7 +627,7 @@ function getBattleStats(pokemon, entry) {
 }
 
 function rankPokemon(pokemon, entry, enemy, settings) {
-  const {atk, def, hp} = getBattleStats(pokemon, entry);
+  const {atk, def, hp} = getBattleStats(pokemon, entry, settings.megaLevel);
   const moveOptions = getPokemonMoveOptions(pokemon, entry.shadow, settings.allowElite, entry.purified);
   const fms = constrainMoves(moveOptions.fast, entry.fastMove, settings.useCurrentMoves);
   const cms = constrainMoves(moveOptions.charged, getEntryChargedMoveNames(entry), settings.useCurrentMoves, getMegaAdditionalChargedMoves(pokemon));
@@ -630,7 +635,8 @@ function rankPokemon(pokemon, entry, enemy, settings) {
 
   let best = null;
   for (const fm of fms) {
-    for (const cm of cms) {
+    for (const baseCm of cms) {
+      const cm = getMegaChargedMove(pokemon, baseCm, settings.megaLevel);
       if (settings.requiredAttackType && fm.type !== settings.requiredAttackType && cm.type !== settings.requiredAttackType) {
         continue;
       }
@@ -653,9 +659,11 @@ function rankPokemon(pokemon, entry, enemy, settings) {
         best = {
           pokemon,
           shadow: entry.shadow,
-          level: entry.level,
+          level: getBattleLevel(pokemon, entry, settings.megaLevel),
+          baseLevel: entry.level,
+          megaLevel: getMegaAdditionalChargedMoves(pokemon).length ? normalizeMegaLevel(settings.megaLevel) : null,
           ivs: entry.ivs,
-          cp: getPokemonCP(getPokemonStats(pokemon, entry.level, entry.ivs, false)),
+          cp: getPokemonCP(getPokemonStats(pokemon, getBattleLevel(pokemon, entry, settings.megaLevel), entry.ivs, false)),
           fastMove: fm,
           chargedMove: cm,
           enteredFastMove: entry.fastMove,
@@ -666,7 +674,7 @@ function rankPokemon(pokemon, entry, enemy, settings) {
           metric,
           fmMult,
           cmMult,
-          notes: [entry.notes, entry.levelNote].filter(Boolean).join("; ")
+          notes: [entry.notes, entry.levelNote, getMegaAdditionalChargedMoves(pokemon).length ? `Mega Level ${normalizeMegaLevel(settings.megaLevel)}${normalizeMegaLevel(settings.megaLevel) === 4 ? ": +2 temporary Pokémon levels; Plus move power ×1.3" : ""}` : ""].filter(Boolean).join("; ")
         };
       }
     }
@@ -704,9 +712,9 @@ function constrainMoves(options, enteredMove, useEntered, alwaysInclude = []) {
   const seen = new Set();
   const addLegalMove = move => {
     if (!move) return;
-    const key = cleanName(move.name);
+    const key = moveKey(move.name);
     if (seen.has(key)) return;
-    if (options.some(option => cleanName(option.name) === key)) {
+    if (options.some(option => moveKey(option.name) === key)) {
       seen.add(key);
       legalMoves.push(move);
     }
@@ -731,8 +739,16 @@ function expandHiddenPower(name) {
   return HIDDEN_POWER_TYPES.map(t => `Hidden Power ${t}`);
 }
 
+function moveKey(name) {
+  // Keep temporary Plus attacks distinct from the base Pokémon's normal moves.
+  return cleanName(name) + (String(name || "").match(/\+/g) || []).join("");
+}
+
 function findMove(name) {
-  return state.moveByName.get(cleanName(name));
+  const key = moveKey(name);
+  const indexed = state.moveByName.get(key);
+  if (indexed && moveKey(indexed.name) === key) return indexed;
+  return [...state.fastMoves, ...state.chargedMoves].find(move => moveKey(move.name) === key);
 }
 
 function getMoveNames(pokemon, key) {
@@ -1208,7 +1224,23 @@ function getFieldlessBoostTypes(pokemon) {
 }
 
 function getMegaAdditionalChargedMoves(pokemon) {
-  return MEGA_ADDITIONAL_CHARGED_MOVES.get(`${pokemon.id}:${pokemon.form}`) || [];
+  if (!pokemon || !isMegaForm(pokemon.form) || pokemon.released === false) return [];
+  return unique([...(pokemon.temp_cm || []), ...(MEGA_ADDITIONAL_CHARGED_MOVES.get(`${pokemon.id}:${pokemon.form}`) || [])]);
+}
+
+function normalizeMegaLevel(value) {
+  const level = Number(value);
+  return Number.isInteger(level) && level >= 1 && level <= 4 ? level : 4;
+}
+
+function getBattleLevel(pokemon, entry, megaLevel = 4) {
+  return entry.level + (getMegaAdditionalChargedMoves(pokemon).length && normalizeMegaLevel(megaLevel) === 4 ? 2 : 0);
+}
+
+function getMegaChargedMove(pokemon, move, megaLevel = 4) {
+  if (!getMegaAdditionalChargedMoves(pokemon).includes(move.name)) return move;
+  // Base move data stays unchanged; each calculation gets its own scaled copy.
+  return {...move, power: move.power * (1 + (normalizeMegaLevel(megaLevel) - 1) / 10)};
 }
 
 function getMegaPriority(pokemon, enemy, attackType = null) {
@@ -1248,11 +1280,11 @@ function hasEnteredMoves(entry) {
 }
 
 function didMovesChange(before, after) {
-  const fastChanged = cleanName(moveName(before.fastMove)) !== cleanName(moveName(after.fastMove));
+  const fastChanged = moveKey(moveName(before.fastMove)) !== moveKey(moveName(after.fastMove));
   const beforeCharged = before.enteredChargedMoves?.length
     ? before.enteredChargedMoves
     : [moveName(before.chargedMove)];
-  const chargedChanged = !beforeCharged.map(cleanName).includes(cleanName(moveName(after.chargedMove)));
+  const chargedChanged = !beforeCharged.map(moveKey).includes(moveKey(moveName(after.chargedMove)));
   return fastChanged || chargedChanged;
 }
 
@@ -1344,7 +1376,7 @@ function renderResults(typeTeams, upgradeCandidates, rowCount, matchedCount, mes
   el.summaryRows.textContent = rowCount.toString();
   el.summaryMatched.textContent = matchedCount.toString();
   el.summarySix.textContent = accountCount ? accountCount.toString() : "-";
-  el.typeContext.textContent = `Showing ${TEAM_TYPES.length} reusable attacker teams per account by ${settings.metric} with Party Power ${settings.partySize}. Mega/Primal is slot 0.`;
+  el.typeContext.textContent = `Showing ${TEAM_TYPES.length} reusable attacker teams per account by ${settings.metric} with Party Power ${settings.partySize}. Mega/Primal is slot 0. Eligible forms use Mega Level ${normalizeMegaLevel(settings.megaLevel)}${normalizeMegaLevel(settings.megaLevel) === 4 ? " (Plus power ×1.3, +2 temporary Pokémon levels)" : ""}.`;
   el.upgradeContext.textContent = `Showing type-team candidates that can enter the active regular lineup by level ${formatNumber(settings.upgradeLevel, 1)}, plus material team gains.`;
   addMessages(messages);
 

@@ -63,7 +63,7 @@ bindElements();
 state.pokemon = JSON.parse(__read("work/dialgadex-data/pogo_pkm.min.json")).filter(p => p.released !== false && p.fm && p.cm);
 state.fastMoves = JSON.parse(__read("work/dialgadex-data/pogo_fm.json")).map(move => move.name === "Hidden Power" ? {...move, type: "None"} : move);
 state.chargedMoves = JSON.parse(__read("work/dialgadex-data/pogo_cm.json"));
-state.moveByName = new Map([...state.fastMoves, ...state.chargedMoves].map(m => [cleanName(m.name), m]));
+state.moveByName = new Map([...state.fastMoves, ...state.chargedMoves].map(m => [moveKey(m.name), m]));
 state.pokemonNameIndex = buildPokemonNameIndex(state.pokemon);
 state.ready = true;
 const zacianCrowned = state.pokemon.find(p => p.name === "Zacian" && p.form === "Crowned_sword");
