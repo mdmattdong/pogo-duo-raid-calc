@@ -197,7 +197,7 @@ function bindElements() {
   for (const id of [
     "raid-data-status", "boss-select", "boss-shadow-toggle", "boss-fast-move", "boss-charged-move",
     "raid-metric-select", "raid-party-size", "raid-relobby-time",
-    "raid-mega-level", "raid-upgrade-level", "raid-allow-elite", "raid-use-current-moves",
+    "raid-upgrade-level", "raid-allow-elite", "raid-use-current-moves",
     "raid-csv-file", "raid-sample-button", "raid-calculate-button",
     "raid-roster-input", "boss-info", "raid-summary-rows",
     "raid-summary-matched", "raid-summary-accounts", "raid-summary-ttw",
@@ -264,7 +264,7 @@ function setupControls() {
 
   for (const input of [
     el.bossFastMove, el.bossChargedMove, el.raidMetricSelect, el.raidPartySize,
-    el.raidRelobbyTime, el.raidMegaLevel, el.raidUpgradeLevel, el.raidAllowElite, el.raidUseCurrentMoves
+    el.raidRelobbyTime, el.raidUpgradeLevel, el.raidAllowElite, el.raidUseCurrentMoves
   ]) {
     input.addEventListener("change", calculate);
   }
@@ -441,7 +441,6 @@ function readSettings() {
     partySize: Number(el.raidPartySize.value),
     teamSize: 6,
     relobbyTime: Number(el.raidRelobbyTime.value || 10),
-    megaLevel: normalizeMegaLevel(el.raidMegaLevel?.value),
     upgradeLevel: clamp(toNumber(el.raidUpgradeLevel.value, 40), 1, 51),
     allowElite: el.raidAllowElite.checked,
     useCurrentMoves: el.raidUseCurrentMoves.checked,
@@ -775,7 +774,7 @@ function buildRaidBossEnemy(boss, settings) {
   };
 }
 
-function getBattleStats(pokemon, entry, adventureEffects = makeAdventureEffectState(), megaLevel = 4) {
+function getBattleStats(pokemon, entry, adventureEffects = makeAdventureEffectState(), megaLevel = getEntryMegaLevel(pokemon, entry)) {
   const stats = getPokemonStats(pokemon, getBattleLevel(pokemon, entry, megaLevel), entry.ivs, true);
   let atk = stats.atk;
   let def = stats.def;
@@ -793,8 +792,9 @@ function getBattleStats(pokemon, entry, adventureEffects = makeAdventureEffectSt
 }
 
 function rankPokemon(pokemon, entry, enemy, settings) {
+  const megaLevel = getEntryMegaLevel(pokemon, entry);
   const adventureEffects = settings.adventureEffects || makeAdventureEffectState();
-  const {atk, def, hp} = getBattleStats(pokemon, entry, adventureEffects, settings.megaLevel);
+  const {atk, def, hp} = getBattleStats(pokemon, entry, adventureEffects, megaLevel);
   const adventureDamageMultiplier = getAdventureDamageMultiplier(adventureEffects, enemy);
   const moveOptions = getPokemonMoveOptions(pokemon, entry.shadow, settings.allowElite, entry.purified);
   const fms = constrainMoves(moveOptions.fast, entry.fastMove, settings.useCurrentMoves);
@@ -804,7 +804,7 @@ function rankPokemon(pokemon, entry, enemy, settings) {
   let best = null;
   for (const fm of fms) {
     for (const baseCm of cms) {
-      const cm = getMegaChargedMove(pokemon, baseCm, settings.megaLevel);
+      const cm = getMegaChargedMove(pokemon, baseCm, megaLevel);
       const fmEffectiveness = enemy.weakness.get(fm.type) || 1;
       const cmEffectiveness = enemy.weakness.get(cm.type) || 1;
       if (settings.requireEffective && Math.max(fmEffectiveness, cmEffectiveness) <= 1.0001) continue;
@@ -825,11 +825,11 @@ function rankPokemon(pokemon, entry, enemy, settings) {
         best = {
           pokemon,
           shadow: entry.shadow,
-          level: getBattleLevel(pokemon, entry, settings.megaLevel),
+          level: getBattleLevel(pokemon, entry, megaLevel),
           baseLevel: entry.level,
-          megaLevel: getMegaAdditionalChargedMoves(pokemon).length ? normalizeMegaLevel(settings.megaLevel) : null,
+          megaLevel: getMegaAdditionalChargedMoves(pokemon).length ? normalizeMegaLevel(megaLevel) : null,
           ivs: entry.ivs,
-          cp: getPokemonCP(getPokemonStats(pokemon, getBattleLevel(pokemon, entry, settings.megaLevel), entry.ivs, false)),
+          cp: getPokemonCP(getPokemonStats(pokemon, getBattleLevel(pokemon, entry, megaLevel), entry.ivs, false)),
           fastMove: fm,
           chargedMove: cm,
           enteredFastMove: entry.fastMove,
@@ -842,7 +842,7 @@ function rankPokemon(pokemon, entry, enemy, settings) {
           cmMult,
           adventureEffects,
           adventureDamageMultiplier,
-          notes: [entry.notes, entry.levelNote, getMegaAdditionalChargedMoves(pokemon).length ? `Mega Level ${normalizeMegaLevel(settings.megaLevel)}${normalizeMegaLevel(settings.megaLevel) === 4 ? ": +2 temporary Pokémon levels; Plus move power ×1.3" : ""}` : ""].filter(Boolean).join("; ")
+          notes: [entry.notes, entry.levelNote, getMegaAdditionalChargedMoves(pokemon).length ? `Mega Level ${normalizeMegaLevel(megaLevel)}${normalizeMegaLevel(megaLevel) === 4 ? ": +2 temporary Pokémon levels; Plus move power ×1.3" : ""}` : ""].filter(Boolean).join("; ")
         };
       }
     }
@@ -1080,7 +1080,7 @@ function renderResults(plan, rowCount, matchedCount, messages, settings) {
   const shadowNote = plan.boss.shadow ? ` Shadow assumption: ${SHADOW_GEM_PLAYERS} players use ${SHADOW_GEMS_PER_PLAYER} Purified Gems each, so the boss is treated as subdued.` : "";
   const energyNote = tierConfig.energyRace ? " Mega/Primal energy raid: the fastest plan matters because win speed affects energy rewards." : "";
   const adventureNote = formatAdventureEffectSummary(settings.accountEffects);
-  el.raidContext.textContent = `${displayBossName(plan.boss)} plan by ${settings.metric}, Party Power ${settings.partySize}, with paired Mega/Primal choices tested across loaded accounts. Eligible forms use Mega Level ${normalizeMegaLevel(settings.megaLevel)}${normalizeMegaLevel(settings.megaLevel) === 4 ? " (Plus power ×1.3, +2 temporary Pokémon levels)" : ""}.${shadowNote}${energyNote}${adventureNote}`;
+  el.raidContext.textContent = `${displayBossName(plan.boss)} plan by ${settings.metric}, Party Power ${settings.partySize}, with paired Mega/Primal choices tested across loaded accounts. Mega Level 4 bonuses use each Pokémon’s saved Super Max unlocks.${shadowNote}${energyNote}${adventureNote}`;
   el.raidResults.innerHTML = renderRaidPlan(plan, settings);
   renderRaidUpgradeCandidates(plan.accountPlans.flatMap(accountPlan => accountPlan.upgrades), settings);
 }
@@ -1461,7 +1461,7 @@ function renderRosterEntryDetails(entry, usableEntry, resolvedCp, settings) {
   const legalChargedMoves = pokemon ? getMoveNames(pokemon, "cm").join(", ") || "-" : "-";
   const megaForms = pokemon ? getMegaForms(pokemon) : [];
   const megaText = megaForms.length ? megaForms.map(form => displayPokemonName(form, false)).join(", ") : "-";
-  const megaControls = renderMegaFormControls(entry, megaForms);
+  const megaControls = renderMegaFormControls(entry, megaForms) + renderSuperMaxControls(entry, megaForms);
   const levelNote = usableEntry?.levelNote || "";
   const cpValue = entry.cp ? String(entry.cp) : "";
 
@@ -1526,6 +1526,20 @@ function renderMegaFormControls(entry, megaForms) {
       const checked = selectedForms.includes(mega);
       return `<label class="check-field"><input type="checkbox" name="mega_forms" value="${escapeAttr(token)}" ${checked ? "checked" : ""}> ${escapeHtml(token)}</label>`;
     }).join("")}
+  </fieldset>`;
+}
+
+function renderSuperMaxControls(entry, megaForms) {
+  const eligible = megaForms.filter(mega => getMegaAdditionalChargedMoves(mega).length);
+  if (!eligible.length || entry.shadow) return "";
+  return `<fieldset class="mega-form-options">
+    <legend>Mega Level 4 unlocked</legend>
+    ${eligible.map(mega => {
+      const token = megaFormToken(mega);
+      const checked = megaFormMatches(entry.superMaxForms || [], mega);
+      return `<label class="check-field"><input type="checkbox" name="super_max_forms" value="${escapeAttr(token)}" ${checked ? "checked" : ""}> ${escapeHtml(token)} · Super Max unlocked</label>`;
+    }).join("")}
+    <div class="subtle">Raid damage uses Level 4 only for checked forms: Plus power ×1.3 and +2 temporary Pokémon levels. Unchecked forms use base Plus power.</div>
   </fieldset>`;
 }
 
@@ -1772,7 +1786,14 @@ function saveRosterEntry(rowNumber) {
   const selectedMegaForms = [];
   const hiddenMegaForms = [];
   let hasMegaFormControls = false;
+  const selectedSuperMaxForms = [];
+  let hasSuperMaxControls = false;
   fields.forEach(field => {
+    if (field.name === "super_max_forms") {
+      hasSuperMaxControls = true;
+      if (field.checked) selectedSuperMaxForms.push(field.value.trim());
+      return;
+    }
     if (field.name === "mega_forms") {
       hasMegaFormControls = true;
       if (field.type === "checkbox") {
@@ -1791,6 +1812,8 @@ function saveRosterEntry(rowNumber) {
       updates.can_mega = selectedMegaForms.length ? "true" : "false";
     }
   }
+
+  if (hasSuperMaxControls) updates.super_max_forms = unique(selectedSuperMaxForms).join("|");
 
   const applied = updateCSVRow(rowNumber, updates);
   if (!applied.ok) {
@@ -2001,6 +2024,7 @@ function normalizeHeader(header) {
     megaforms: "mega_forms", megaform: "mega_forms", megachoices: "mega_forms",
     megaoption: "mega_forms", megaoptions: "mega_forms", megaevolutions: "mega_forms",
     primalforms: "mega_forms",
+    supermaxforms: "super_max_forms", megalevel4forms: "super_max_forms",
     fast: "fast_move", fastmove: "fast_move", quickmove: "fast_move", quick: "fast_move",
     charged: "charged_move", chargemove: "charged_move", chargedmove: "charged_move", charge: "charged_move", special: "charged_move",
     charged2: "charged_move_2", chargemove2: "charged_move_2", chargedmove2: "charged_move_2",
@@ -2029,6 +2053,7 @@ function normalizeRosterEntry(obj) {
     purified: parseBoolean(obj.purified) || [obj.charged_move, obj.charged_move_2].some(move => cleanName(move) === "return"),
     canMega: parseBoolean(obj.can_mega),
     megaForms: parseMegaFormTokens(obj.mega_forms),
+    superMaxForms: parseMegaFormTokens(obj.super_max_forms),
     fastMove: obj.fast_move || "",
     chargedMove: obj.charged_move || "",
     chargedMove2: obj.charged_move_2 || "",
@@ -2339,7 +2364,12 @@ function normalizeMegaLevel(value) {
   return Number.isInteger(level) && level >= 1 && level <= 4 ? level : 4;
 }
 
-function getBattleLevel(pokemon, entry, megaLevel = 4) {
+function getEntryMegaLevel(pokemon, entry) {
+  if (!getMegaAdditionalChargedMoves(pokemon).length) return 1;
+  return megaFormMatches(entry.superMaxForms || [], pokemon) ? 4 : 1;
+}
+
+function getBattleLevel(pokemon, entry, megaLevel = getEntryMegaLevel(pokemon, entry)) {
   return entry.level + (getMegaAdditionalChargedMoves(pokemon).length && normalizeMegaLevel(megaLevel) === 4 ? 2 : 0);
 }
 

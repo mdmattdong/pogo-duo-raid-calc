@@ -3,7 +3,7 @@ const vm = require("vm");
 const assert = require("assert/strict");
 
 for (const app of ["app.js", "raid-boss.js"]) {
-  const context = vm.createContext({console, document: {addEventListener() {}}, assert,
+  const context = vm.createContext({console, document: {addEventListener() {}}, assert, isRaid: app === "raid-boss.js",
     read: name => JSON.parse(fs.readFileSync(`work/dialgadex-data/${name}`, "utf8"))});
   vm.runInContext(fs.readFileSync(`outputs/pokemon-raid-roster/${app}`, "utf8"), context);
   vm.runInContext(`
@@ -44,14 +44,40 @@ for (const app of ["app.js", "raid-boss.js"]) {
       const settings = {metric: "DPS", partySize: 1, teamSize: 6, relobbyTime: 10, allowElite: true,
         useCurrentMoves: false, requireEffective: false, boostSources: []};
       const one = rankPokemon(pokemon, entry, enemy, {...settings, megaLevel: 1});
-      const four = rankPokemon(pokemon, entry, enemy, {...settings, megaLevel: 4});
+      const unlockedEntry = {...entry, superMaxForms: [megaFormToken(pokemon)]};
+      const four = rankPokemon(pokemon, isRaid ? unlockedEntry : entry, enemy, {...settings, megaLevel: 4});
+      if (isRaid) {
+        const unchecked = rankPokemon(pokemon, entry, enemy, {...settings, megaLevel: 4});
+        assert.equal(unchecked.level, 50, "Global settings cannot grant an owned unlock");
+        assert.equal(unchecked.dps, one.dps);
+      }
       assert(one && four && four.dps > one.dps, pokemon.name + " Level 4 should increase DPS");
       assert.equal(four.level, 52);
       assert.equal(four.baseLevel, 50);
       assert.equal(four.cp, getPokemonCP(getPokemonStats(pokemon, 52, entry.ivs, false)));
-      const repeat = rankPokemon(pokemon, entry, enemy, {...settings, megaLevel: 4});
+      const repeat = rankPokemon(pokemon, isRaid ? unlockedEntry : entry, enemy, {...settings, megaLevel: 4});
       assert.equal(repeat.dps, four.dps, "Repeated calculations must not compound the boost");
       assert.equal(getBattleLevel(pokemon, {...entry, level: 51}, 4), 53);
+    }
+    if (isRaid) {
+      const x = eligible.find(p => p.name === "Mega Mewtwo X");
+      const y = eligible.find(p => p.name === "Mega Mewtwo Y");
+      const owned = {...entry, superMaxForms: ["Mega Mewtwo X"]};
+      assert.equal(getEntryMegaLevel(x, owned), 4);
+      assert.equal(getEntryMegaLevel(y, owned), 1, "X unlock must not unlock Y");
+      assert.equal(getBattleLevel(x, owned), 52);
+      assert.equal(getBattleLevel(y, owned), 50);
+      assert.equal(getBattleLevel(x, entry), 50, "An existing row without unlocks must stay unboosted");
+      assert.equal(getEntryMegaLevel(x, {...entry, superMaxForms: []}), 1, "Another row of the same species must not inherit the unlock");
+      const legacy = parseRoster("account,name,level,notes\\nMain,Mewtwo,43,keep me").entries[0];
+      assert.equal(legacy.superMaxForms.length, 0);
+      const imported = parseRoster("account,name,level,super_max_forms,notes\\nMain,Mewtwo,43,Mega Mewtwo X|Mega Mewtwo Y,keep me").entries[0];
+      assert.equal(imported.superMaxForms.join("|"), "Mega Mewtwo X|Mega Mewtwo Y");
+      assert.equal(imported.notes, "keep me");
+      const markup = renderSuperMaxControls(owned, [x, y]);
+      assert(markup.includes('value="Mega Mewtwo X" checked'));
+      assert(!markup.includes('value="Mega Mewtwo Y" checked'));
+      assert.equal(renderSuperMaxControls(owned, [state.pokemon.find(p => p.name === "Primal Groudon")]), "");
     }
     for (const name of ["Mewtwo", "Mega Rayquaza", "Primal Groudon", "Mega Sceptile"]) {
       const p = state.pokemon.find(p => p.name === name);

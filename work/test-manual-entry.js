@@ -5,7 +5,7 @@ const elementIds = [
   "manual-status", "entry-account", "entry-name", "entry-form", "entry-cp",
   "entry-current-hp", "entry-level", "entry-atk", "entry-def", "entry-hp", "entry-fast",
   "entry-hidden-power-wrap", "entry-hidden-power-type", "entry-charged", "entry-charged-2", "entry-notes", "entry-shadow", "entry-purified",
-  "entry-can-mega", "entry-can-mega-wrap", "entry-mega-form-options", "entry-preview",
+  "entry-can-mega", "entry-can-mega-wrap", "entry-mega-form-options", "entry-super-max-options", "entry-preview",
   "inference-summary", "inference-select", "apply-inference-button",
   "add-entry-button", "reset-entry-button", "manual-csv-output",
   "manual-row-count", "manual-account-count", "manual-mega-count",
@@ -175,7 +175,7 @@ const previousAfterEdit = localStorage.getItem(PREVIOUS_CSV_KEY);
 if (state.rows.length !== 1 || state.editingIndex !== null || savedRows[0].level !== "43" || savedRows[0].cp !== "4270" || savedRows[0].current_hp !== "174") {
   throw new Error("Saving an edited manual row should update local editable rows");
 }
-if (!sharedAfterEdit.includes("Main,Groudon,Normal,43,15,14,15,false,false,Mud Shot,Precipice Blades,Fire Punch,4270,true,Primal Groudon,edited from manual")) {
+if (!sharedAfterEdit.includes("Main,Groudon,Normal,43,15,14,15,false,false,Mud Shot,Precipice Blades,Fire Punch,4270,true,Primal Groudon,,edited from manual")) {
   throw new Error("Saving an edited manual row should update the shared roster CSV: " + sharedAfterEdit);
 }
 if (previousAfterEdit !== sharedCsv) throw new Error("Manual edit should keep a previous shared CSV backup");
@@ -191,4 +191,19 @@ __result = {
 
 context.__read = file => fs.readFileSync(file, "utf8");
 vm.runInContext(`${appCode}\n${testCode}`, context);
+vm.runInContext(`
+const ownedRow = normalizeStoredRow({...state.rows[0], name: "Mewtwo", super_max_forms: "Mega Mewtwo X", notes: "preserve unlocks"});
+const ownedCSV = serializeCSV([CSV_HEADERS, rowToCSVCells(ownedRow)]);
+const roundTrip = parseRosterCSVRows(ownedCSV)[0];
+if (roundTrip.super_max_forms !== "Mega Mewtwo X" || roundTrip.notes !== "preserve unlocks") throw Error("Manual CSV export/import must preserve per-form unlocks and existing fields");
+state.rows = [ownedRow];
+editRow(0);
+if (!el.entrySuperMaxOptions.innerHTML.includes('value="Mega Mewtwo X" checked') || el.entrySuperMaxOptions.innerHTML.includes('value="Mega Mewtwo Y" checked')) throw Error("Manual editor must restore the specific unlocked form");
+el.entrySuperMaxOptions.querySelectorAll = () => [{value: "Mega Mewtwo X"}];
+el.entryNotes.value = "updated notes";
+const collected = collectFormRow();
+if (collected.super_max_forms !== "Mega Mewtwo X" || collected.notes !== "updated notes") throw Error("Editing normal fields must retain Super Max unlocks");
+el.entrySuperMaxOptions.querySelectorAll = () => [];
+if (collectFormRow().super_max_forms !== "") throw Error("Unchecking Super Max must remove the unlock");
+`, context);
 console.log(JSON.stringify(context.__result, null, 2));

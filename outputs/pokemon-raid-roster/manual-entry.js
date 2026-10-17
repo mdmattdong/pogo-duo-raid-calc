@@ -49,7 +49,7 @@ const CPM = [
 
 const CSV_HEADERS = [
   "account", "name", "form", "level", "atk_iv", "def_iv", "hp_iv",
-  "shadow", "purified", "fast_move", "charged_move", "charged_move_2", "cp", "can_mega", "mega_forms", "notes"
+  "shadow", "purified", "fast_move", "charged_move", "charged_move_2", "cp", "can_mega", "mega_forms", "super_max_forms", "notes"
 ];
 
 const DEFAULT_PLAYER_NAMES = ["Main", "Alt"];
@@ -95,7 +95,7 @@ function bindElements() {
     "manual-status", "entry-account", "entry-name", "entry-form", "entry-cp",
     "entry-current-hp", "entry-level", "entry-atk", "entry-def", "entry-hp", "entry-fast",
     "entry-hidden-power-wrap", "entry-hidden-power-type", "entry-charged", "entry-charged-2", "entry-notes", "entry-shadow", "entry-purified",
-    "entry-can-mega", "entry-can-mega-wrap", "entry-mega-form-options", "entry-preview",
+    "entry-can-mega", "entry-can-mega-wrap", "entry-mega-form-options", "entry-super-max-options", "entry-preview",
     "inference-summary", "inference-select", "apply-inference-button",
     "add-entry-button", "reset-entry-button", "manual-csv-output",
     "manual-row-count", "manual-account-count", "manual-mega-count",
@@ -123,7 +123,7 @@ function setupControls() {
   el.entryHiddenPowerType.addEventListener("change", updateHiddenPowerTypeUI);
   el.entryCp.addEventListener("input", updateInference);
   el.entryCurrentHp.addEventListener("input", updateInference);
-  el.entryShadow.addEventListener("change", refreshMoveOptions);
+  el.entryShadow.addEventListener("change", () => { refreshMoveOptions(); refreshMegaControls(); });
   el.entryPurified.addEventListener("change", refreshMoveOptions);
   el.applyInferenceButton.addEventListener("click", applySelectedInference);
   el.addEntryButton.addEventListener("click", saveCurrentEntry);
@@ -458,9 +458,10 @@ function renderMoveSelect(select, names, previousValue, emptyLabel = "Let evalua
   }
 }
 
-function refreshMegaControls(selectedTokens = selectedMegaFormTokens()) {
+function refreshMegaControls(selectedTokens = selectedMegaFormTokens(), superMaxTokens = selectedSuperMaxFormTokens()) {
   const pokemon = state.selectedPokemon;
   const megaForms = pokemon ? getMegaForms(pokemon) : [];
+  refreshSuperMaxControls(megaForms, superMaxTokens);
   el.entryCanMegaWrap.classList.toggle("is-hidden", megaForms.length !== 1);
   el.entryMegaFormOptions.classList.toggle("is-hidden", megaForms.length <= 1);
 
@@ -489,6 +490,22 @@ function refreshMegaControls(selectedTokens = selectedMegaFormTokens()) {
       const checked = megaFormMatches(selected, mega);
       return `<label class="check-field"><input type="checkbox" name="entry_mega_form" value="${escapeAttr(token)}" ${checked ? "checked" : ""}> ${escapeHtml(token)}</label>`;
     }).join("")}`;
+}
+
+function selectedSuperMaxFormTokens() {
+  return [...el.entrySuperMaxOptions.querySelectorAll('input[name="entry_super_max_form"]:checked')]
+    .map(input => input.value.trim()).filter(Boolean);
+}
+
+function refreshSuperMaxControls(megaForms, selectedTokens = []) {
+  const eligible = megaForms.filter(mega => (mega.temp_cm || []).length && mega.released !== false);
+  el.entrySuperMaxOptions.classList.toggle("is-hidden", !eligible.length || el.entryShadow.checked);
+  el.entrySuperMaxOptions.innerHTML = eligible.length ? `<div class="visual-section-label">Mega Level 4 unlocked</div>
+    ${eligible.map(mega => {
+      const token = megaFormToken(mega);
+      return `<label class="check-field"><input type="checkbox" name="entry_super_max_form" value="${escapeAttr(token)}" ${megaFormMatches(selectedTokens, mega) ? "checked" : ""}> ${escapeHtml(token)} · Super Max unlocked</label>`;
+    }).join("")}
+    <div class="subtle">Check only forms this Pokémon has unlocked. Used automatically for raid damage.</div>` : "";
 }
 
 function selectedMegaFormTokens() {
@@ -705,6 +722,7 @@ function collectFormRow() {
     cp: el.entryCp.value.trim(),
     can_mega: String(hasMega && megaForms.length > 0),
     mega_forms: megaForms.join("|"),
+    super_max_forms: selectedSuperMaxFormTokens().join("|"),
     notes: el.entryNotes.value.trim()
   };
 }
@@ -768,7 +786,7 @@ function editRow(index) {
   el.entryCharged2.value = row.charged_move_2 || "";
   const savedMegaForms = parseMegaFormTokens(row.mega_forms);
   el.entryCanMega.checked = parseBoolean(row.can_mega);
-  refreshMegaControls(savedMegaForms.length ? savedMegaForms : el.entryCanMega.checked && state.selectedPokemon ? getMegaForms(state.selectedPokemon).map(megaFormToken) : []);
+  refreshMegaControls(savedMegaForms.length ? savedMegaForms : el.entryCanMega.checked && state.selectedPokemon ? getMegaForms(state.selectedPokemon).map(megaFormToken) : [], parseMegaFormTokens(row.super_max_forms));
   updateHiddenPowerTypeUI();
   renderRows();
   if (typeof el.entryName.focus === "function") el.entryName.focus();
@@ -1119,6 +1137,7 @@ function normalizeHeader(header) {
     megaforms: "mega_forms", megaform: "mega_forms", megachoices: "mega_forms",
     megaoption: "mega_forms", megaoptions: "mega_forms", megaevolutions: "mega_forms",
     primalforms: "mega_forms",
+    supermaxforms: "super_max_forms", megalevel4forms: "super_max_forms",
     fast: "fast_move", fastmove: "fast_move", quickmove: "fast_move", quick: "fast_move",
     charged: "charged_move", chargemove: "charged_move", chargedmove: "charged_move", charge: "charged_move", special: "charged_move",
     charged2: "charged_move_2", chargemove2: "charged_move_2", chargedmove2: "charged_move_2",
@@ -1148,6 +1167,7 @@ function normalizeStoredRow(row = {}) {
     cp: String(row.cp || "").trim(),
     can_mega: String(parseBoolean(row.can_mega)),
     mega_forms: String(row.mega_forms || "").trim(),
+    super_max_forms: String(row.super_max_forms || "").trim(),
     notes: String(row.notes || "").trim()
   };
 }

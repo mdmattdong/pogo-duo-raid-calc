@@ -96,12 +96,23 @@ The formulas are a practical local implementation of DialgaDex/GamePress-style r
 
 ## Mega Level 4 update — October 17, 2026
 
-Both calculators now have a **Mega Level (eligible forms)** selector, defaulting to
-**4 · Super Max**. This is a calculation assumption for eligible Mega forms;
-it does not mark your owned Pokémon as having unlocked Mega Level 4. Choose
-1–3 when comparing a lower Mega Level. Your entered Pokémon levels, IVs,
-normal moves, and Mega availability are unchanged. The selected Mega Level
-applies to all eligible forms in that calculation.
+The raid boss calculator uses **Mega Level 4 unlocked** checkboxes saved on each
+roster Pokémon. Expand a Pokémon under **Roster quick edit**, check the specific
+form(s) that have Super Max unlocked, then choose **Save edits**. The same controls
+are available in manual entry and the evaluator's full roster editor. Mewtwo X
+and Y (and Raichu X/Y) are tracked separately, as are different copies of the same
+Pokémon and different accounts. Keep the relevant **Can Mega/Primal** or
+**Mega/Primal forms ready** option enabled to include that form in the raid plan.
+
+Checked forms use 1.3× Plus power and two temporary Pokémon levels. Unchecked
+forms use base Plus power (Mega Level 1 assumption) and no temporary levels;
+intermediate Mega Levels 2–3 are not tracked by these checkboxes. The raid page
+has no global Mega Level dropdown. The type evaluator retains its dropdown for
+hypothetical comparisons. Existing Pokémon levels, IVs, normal moves, and Mega
+availability are preserved; old rosters without unlock data start unchecked.
+The optional CSV column `super_max_forms` stores form names separated by `|`,
+for example `Mega Mewtwo X|Mega Mewtwo Y`. Imports, edits, manual CSV exports,
+and saved browser rosters preserve it.
 
 At Mega Levels 1/2/3/4, the temporary Plus charged move uses 1.0/1.1/1.2/1.3×
 base power. At Mega Level 4 only, eligible Mega attackers also get two temporary

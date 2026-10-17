@@ -534,6 +534,7 @@ function normalizeHeader(header) {
     megaforms: "mega_forms", megaform: "mega_forms", megachoices: "mega_forms",
     megaoption: "mega_forms", megaoptions: "mega_forms",
     megaevolutions: "mega_forms", primalforms: "mega_forms",
+    supermaxforms: "super_max_forms", megalevel4forms: "super_max_forms",
     fast: "fast_move", fastmove: "fast_move", quickmove: "fast_move", quick: "fast_move",
     charged: "charged_move", chargemove: "charged_move", chargedmove: "charged_move", charge: "charged_move", special: "charged_move",
     charged2: "charged_move_2", chargemove2: "charged_move_2", chargedmove2: "charged_move_2",
@@ -562,6 +563,7 @@ function normalizeRosterEntry(obj) {
     purified: parseBoolean(obj.purified) || [obj.charged_move, obj.charged_move_2].some(move => cleanName(move) === "return"),
     canMega: parseBoolean(obj.can_mega),
     megaForms: parseMegaFormTokens(obj.mega_forms),
+    superMaxForms: parseMegaFormTokens(obj.super_max_forms),
     fastMove: obj.fast_move || "",
     chargedMove: obj.charged_move || "",
     chargedMove2: obj.charged_move_2 || "",
@@ -1632,7 +1634,14 @@ function saveRosterEntry(rowNumber) {
   const selectedMegaForms = [];
   const hiddenMegaForms = [];
   let hasMegaFormControls = false;
+  const selectedSuperMaxForms = [];
+  let hasSuperMaxControls = false;
   fields.forEach(field => {
+    if (field.name === "super_max_forms") {
+      hasSuperMaxControls = true;
+      if (field.checked) selectedSuperMaxForms.push(field.value.trim());
+      return;
+    }
     if (field.name === "mega_forms") {
       hasMegaFormControls = true;
       if (field.type === "checkbox") {
@@ -1651,6 +1660,8 @@ function saveRosterEntry(rowNumber) {
       updates.can_mega = selectedMegaForms.length ? "true" : "false";
     }
   }
+
+  if (hasSuperMaxControls) updates.super_max_forms = unique(selectedSuperMaxForms).join("|");
 
   const applied = updateCSVRow(rowNumber, updates);
   if (!applied.ok) {
@@ -1814,7 +1825,7 @@ function renderRosterEntryDetails(entry, usableEntry, resolvedCp, settings) {
   const legalChargedMoves = pokemon ? getMoveNames(pokemon, "cm").join(", ") || "-" : "-";
   const megaForms = pokemon ? getMegaForms(pokemon) : [];
   const megaText = megaForms.length ? megaForms.map(form => displayPokemonName(form, false)).join(", ") : "-";
-  const megaControls = renderMegaFormControls(entry, megaForms);
+  const megaControls = renderMegaFormControls(entry, megaForms) + renderSuperMaxControls(entry, megaForms);
   const levelNote = usableEntry?.levelNote || "";
   const cpValue = entry.cp ? String(entry.cp) : "";
 
@@ -1879,6 +1890,20 @@ function renderMegaFormControls(entry, megaForms) {
       const checked = selectedForms.includes(mega);
       return `<label class="check-field"><input type="checkbox" name="mega_forms" value="${escapeAttr(token)}" ${checked ? "checked" : ""}> ${escapeHtml(token)}</label>`;
     }).join("")}
+  </fieldset>`;
+}
+
+function renderSuperMaxControls(entry, megaForms) {
+  const eligible = megaForms.filter(mega => getMegaAdditionalChargedMoves(mega).length);
+  if (!eligible.length || entry.shadow) return "";
+  return `<fieldset class="mega-form-options">
+    <legend>Mega Level 4 unlocked</legend>
+    ${eligible.map(mega => {
+      const token = megaFormToken(mega);
+      const checked = megaFormMatches(entry.superMaxForms || [], mega);
+      return `<label class="check-field"><input type="checkbox" name="super_max_forms" value="${escapeAttr(token)}" ${checked ? "checked" : ""}> ${escapeHtml(token)} · Super Max unlocked</label>`;
+    }).join("")}
+    <div class="subtle">Raid damage uses Level 4 only for checked forms: Plus power ×1.3 and +2 temporary Pokémon levels. Unchecked forms use base Plus power.</div>
   </fieldset>`;
 }
 
