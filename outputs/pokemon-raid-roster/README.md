@@ -153,3 +153,37 @@ Sources:
 - [Official Manectric update](https://pokemongo.com/news/fall-marathon-buddy-trek-2026)
 - [DialgaDex calculation settings](https://www.dialgadex.com/?strongest=&t=Any)
 - [Public DialgaDex resource data](https://github.com/mgrann03/pokemon-resources)
+
+## Raid dodging and power-up suggestions
+
+The raid calculator offers **No dodging** (the default), **Charged attacks only**,
+and **All attacks**. **Dodge success (%)** sets the fraction of attempts that
+succeed; it applies to all loaded accounts in that calculation. A successful
+dodge takes 25% of that attack's normal damage. Every attempt, including a
+failed one, consumes 0.5 seconds of attacking time.
+
+The calculator separates the boss's fast and charged damage, applies the
+attacker's type resistances, and then reduces the targeted damage according to
+the selected dodge success rate. It uses the existing boss move-cycle estimate
+to estimate dodge attempts per second. The attack/energy cycle includes the
+lost attacking time and reduced energy gained from taking damage. Lifetime,
+TDO, eDPS, team choices, upgrade suggestions, and estimated completion time use
+these adjusted values. Dodging may improve survival while lowering raw DPS.
+These are average estimates, not a simulation of individual attack windows,
+queued moves, latency, or one-hit knockouts. With boss moves set to **Any**, the
+app evaluates its existing average across possible boss movesets. If no usable
+boss moves exist, it retains the normal generic damage estimate rather than
+inventing a dodge frequency. Choosing **No dodging** retains existing results.
+
+**Power-up target level** is the target Pokémon level for hypothetical upgrade
+suggestions. For example, setting 40 asks which moves or power-ups through level
+40 could improve the current team. It does not change saved Pokémon levels or
+raise the current team's levels. It is separate from a Pokémon's saved Mega
+Level 4 unlock and its temporary two-level battle boost.
+
+Dodge constants were checked against the public [Pokémon GO Game Master battle
+settings](https://github.com/PokeMiners/game_masters/blob/master/latest/latest.json)
+on October 17, 2026 (`dodgeDurationMs: 500`,
+`dodgeDamageReductionPercent: 0.75`). The official [raid troubleshooting
+guide](https://niantic.helpshift.com/hc/en/6-pokemon-go/faq/2738-i-m-unable-to-defeat-a-raid-boss/)
+also explains using dodges to reduce incoming charged-attack damage.

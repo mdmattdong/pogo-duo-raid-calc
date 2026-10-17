@@ -3,7 +3,7 @@ const vm = require("vm");
 
 const elementIds = [
   "raid-data-status", "boss-select", "boss-shadow-toggle", "boss-fast-move", "boss-charged-move",
-  "raid-metric-select", "raid-party-size", "raid-relobby-time",
+  "raid-metric-select", "raid-party-size", "raid-relobby-time", "raid-dodge-mode", "raid-dodge-success",
   "raid-upgrade-level", "raid-allow-elite", "raid-use-current-moves",
   "raid-csv-file", "raid-sample-button", "raid-calculate-button",
   "raid-roster-input", "boss-info", "raid-summary-rows",

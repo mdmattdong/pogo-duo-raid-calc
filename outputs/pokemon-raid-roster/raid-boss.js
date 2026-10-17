@@ -196,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
 function bindElements() {
   for (const id of [
     "raid-data-status", "boss-select", "boss-shadow-toggle", "boss-fast-move", "boss-charged-move",
-    "raid-metric-select", "raid-party-size", "raid-relobby-time",
+    "raid-metric-select", "raid-party-size", "raid-relobby-time", "raid-dodge-mode", "raid-dodge-success",
     "raid-upgrade-level", "raid-allow-elite", "raid-use-current-moves",
     "raid-csv-file", "raid-sample-button", "raid-calculate-button",
     "raid-roster-input", "boss-info", "raid-summary-rows",
@@ -264,7 +264,7 @@ function setupControls() {
 
   for (const input of [
     el.bossFastMove, el.bossChargedMove, el.raidMetricSelect, el.raidPartySize,
-    el.raidRelobbyTime, el.raidUpgradeLevel, el.raidAllowElite, el.raidUseCurrentMoves
+    el.raidDodgeMode, el.raidDodgeSuccess, el.raidRelobbyTime, el.raidUpgradeLevel, el.raidAllowElite, el.raidUseCurrentMoves
   ]) {
     input.addEventListener("change", calculate);
   }
@@ -440,6 +440,8 @@ function readSettings() {
     metric: el.raidMetricSelect.value,
     partySize: Number(el.raidPartySize.value),
     teamSize: 6,
+    dodgeMode: normalizeDodgeMode(el.raidDodgeMode?.value),
+    dodgeSuccess: clamp(toNumber(el.raidDodgeSuccess?.value, 100), 0, 100) / 100,
     relobbyTime: Number(el.raidRelobbyTime.value || 10),
     upgradeLevel: clamp(toNumber(el.raidUpgradeLevel.value, 40), 1, 51),
     allowElite: el.raidAllowElite.checked,
@@ -812,7 +814,7 @@ function rankPokemon(pokemon, entry, enemy, settings) {
       const fmMult = fmEffectiveness * getRaidMoveBoost(fm.type, settings.boostSources);
       const cmMult = cmEffectiveness * getRaidMoveBoost(cm.type, settings.boostSources);
       const ratings = enemy.enemyYs.map(enemyY => {
-        const incoming = avgYAgainst(enemyY, pokemon.types);
+        const incoming = applyDodging(avgYAgainst(enemyY, pokemon.types), settings);
         const dps = getDPS(pokemon.types, atk, def, hp, fm, cm, fmMult, cmMult, enemy.stats.def, incoming, settings) * adventureDamageMultiplier;
         const tdo = getTDO(dps, hp, def, incoming);
         const edps = getEDPS(dps, tdo, pokemon, enemy, settings);
@@ -1080,7 +1082,8 @@ function renderResults(plan, rowCount, matchedCount, messages, settings) {
   const shadowNote = plan.boss.shadow ? ` Shadow assumption: ${SHADOW_GEM_PLAYERS} players use ${SHADOW_GEMS_PER_PLAYER} Purified Gems each, so the boss is treated as subdued.` : "";
   const energyNote = tierConfig.energyRace ? " Mega/Primal energy raid: the fastest plan matters because win speed affects energy rewards." : "";
   const adventureNote = formatAdventureEffectSummary(settings.accountEffects);
-  el.raidContext.textContent = `${displayBossName(plan.boss)} plan by ${settings.metric}, Party Power ${settings.partySize}, with paired Mega/Primal choices tested across loaded accounts. Mega Level 4 bonuses use each Pokémon’s saved Super Max unlocks.${shadowNote}${energyNote}${adventureNote}`;
+  const dodgeNote = formatDodgeSummary(settings);
+  el.raidContext.textContent = `${displayBossName(plan.boss)} plan by ${settings.metric}, Party Power ${settings.partySize}, with paired Mega/Primal choices tested across loaded accounts. Mega Level 4 bonuses use each Pokémon’s saved Super Max unlocks.${shadowNote}${energyNote}${adventureNote}${dodgeNote}`;
   el.raidResults.innerHTML = renderRaidPlan(plan, settings);
   renderRaidUpgradeCandidates(plan.accountPlans.flatMap(accountPlan => accountPlan.upgrades), settings);
 }
@@ -2200,12 +2203,16 @@ function getSpecificY(types, atk, fm, cm, incomingDps = 50) {
   if (fmsPerCm < 0) fmsPerCm = 0;
   fmsPerCm = fmsPerCm + (1 / chargedMoveChance) - 1;
   const cycleDur = fmsPerCm * fmDur + cmDur;
-  const y = {Any: {y_num: (fmsPerCm * fmNum + cmNum) / cycleDur, cm_num: cmNum}};
+  const y = {Any: {
+    y_num: (fmsPerCm * fmNum + cmNum) / cycleDur, cm_num: cmNum,
+    fast_y_num: fmsPerCm * fmNum / cycleDur, charged_y_num: cmNum / cycleDur,
+    fast_rate: fmsPerCm / cycleDur, charged_rate: 1 / cycleDur
+  }};
   if (fm.type === cm.type) {
     y[fm.type] = y.Any;
   } else {
-    y[fm.type] = {y_num: (fmsPerCm * fmNum) / cycleDur, cm_num: 0};
-    y[cm.type] = {y_num: cmNum / cycleDur, cm_num: cmNum};
+    y[fm.type] = {y_num: (fmsPerCm * fmNum) / cycleDur, cm_num: 0, fast_y_num: fmsPerCm * fmNum / cycleDur, charged_y_num: 0};
+    y[cm.type] = {y_num: cmNum / cycleDur, cm_num: cmNum, fast_y_num: 0, charged_y_num: cmNum / cycleDur};
   }
   return y;
 }
@@ -2213,16 +2220,55 @@ function getSpecificY(types, atk, fm, cm, incomingDps = 50) {
 function avgYAgainst(enemyY, defenderTypes) {
   let yNum = 0;
   let cmNum = 0;
+  let fastYNum = 0;
+  let chargedYNum = 0;
   for (const [type, y] of Object.entries(enemyY)) {
     if (type === "Any") continue;
     const mult = effectiveness(type, defenderTypes);
     yNum += y.y_num * mult;
     cmNum += y.cm_num * mult;
+    fastYNum += (y.fast_y_num || 0) * mult;
+    chargedYNum += (y.charged_y_num || 0) * mult;
   }
-  return {y_num: yNum || null, cm_num: cmNum || null};
+  return {
+    y_num: yNum || null, cm_num: cmNum || null,
+    fast_y_num: fastYNum, charged_y_num: chargedYNum,
+    fast_rate: enemyY.Any?.fast_rate || 0, charged_rate: enemyY.Any?.charged_rate || 0
+  };
+}
+
+function normalizeDodgeMode(mode) {
+  return ["charged", "all"].includes(mode) ? mode : "none";
+}
+
+function applyDodging(incoming, settings) {
+  const mode = normalizeDodgeMode(settings.dodgeMode);
+  // Unknown boss moves retain the existing generic incoming-damage estimate.
+  if (mode === "none" || !(incoming?.charged_rate > 0)) return incoming;
+  const success = clamp(toNumber(settings.dodgeSuccess, 1), 0, 1);
+  const damageFactor = 1 - 0.75 * success;
+  const fastFactor = mode === "all" ? damageFactor : 1;
+  const attemptsPerSecond = incoming.charged_rate + (mode === "all" ? incoming.fast_rate : 0);
+  return {
+    ...incoming,
+    y_num: incoming.fast_y_num * fastFactor + incoming.charged_y_num * damageFactor,
+    cm_num: incoming.cm_num * damageFactor,
+    // A failed attempt still costs time. Boss attacks continue during dodges.
+    attackUptime: Math.max(0.05, 1 - 0.5 * attemptsPerSecond)
+  };
+}
+
+function formatDodgeSummary(settings) {
+  const mode = normalizeDodgeMode(settings.dodgeMode);
+  if (mode === "none") return " Dodging: off.";
+  const success = clamp(toNumber(settings.dodgeSuccess, 1), 0, 1);
+  return ` Dodge estimate: ${mode === "all" ? "all attacks" : "charged attacks only"}, ${formatNumber(success * 100, 0)}% success; one 0.5s attempt per targeted boss attack. Successful dodges take 25% damage.`;
 }
 
 function getDPS(types, atk, def, hp, fm, cm, fmMult, cmMult, enemyDef, enemyY, settings) {
+  const attackUptime = enemyY?.attackUptime || 1;
+  const fmDuration = processDuration(fm.duration) / attackUptime;
+  const cmDuration = processDuration(cm.duration) / attackUptime;
   const estimatedYNumerator = 1340;
   const estimatedCmPower = 11670;
   const safeEnemyDef = enemyDef || 180;
@@ -2233,20 +2279,20 @@ function getDPS(types, atk, def, hp, fm, cm, fmMult, cmMult, enemyDef, enemyY, s
 
   const fmDmgMult = fmMult * (types.includes(fm.type) && fm.name !== "Hidden Power" ? Math.fround(1.2) : 1);
   const fmDmg = calcDamage(atk, safeEnemyDef, processPower(fm), fmDmgMult);
-  const fmDps = fmDmg / processDuration(fm.duration);
-  const fmEps = fm.energy_delta / processDuration(fm.duration);
+  const fmDps = fmDmg / fmDuration;
+  const fmEps = fm.energy_delta / fmDuration;
 
-  const fToCRatio = (tof * -cm.energy_delta + processDuration(cm.duration) * (x - 0.5 * hp)) /
-    (tof * fm.energy_delta - processDuration(fm.duration) * (x - 0.5 * hp));
+  const fToCRatio = (tof * -cm.energy_delta + cmDuration * (x - 0.5 * hp)) /
+    (tof * fm.energy_delta - fmDuration * (x - 0.5 * hp));
   const partyBoost = getPartyBoost(fToCRatio, settings.partySize);
 
   const cmDmgMult = cmMult * (types.includes(cm.type) ? Math.fround(1.2) : 1);
   const cmDmg = calcDamage(atk, safeEnemyDef, processPower(cm), cmDmgMult);
-  const cmDps = cmDmg / processDuration(cm.duration);
+  const cmDps = cmDmg / cmDuration;
   const cmDpsAdj = cmDps * (1 + partyBoost);
-  let cmEps = -cm.energy_delta / processDuration(cm.duration);
+  let cmEps = -cm.energy_delta / cmDuration;
   if (cm.energy_delta === -100) {
-    cmEps = (-cm.energy_delta + 0.5 * fm.energy_delta) / processDuration(cm.duration);
+    cmEps = (-cm.energy_delta + 0.5 * fm.energy_delta) / cmDuration;
   }
   if (fmDps > cmDps) return fmDps;
   const dps0 = (fmDps * cmEps + cmDpsAdj * fmEps) / (cmEps + fmEps);

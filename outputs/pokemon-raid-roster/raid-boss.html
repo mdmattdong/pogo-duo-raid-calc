@@ -65,9 +65,26 @@
       </div>
 
       <div class="field">
-        <label for="raid-upgrade-level">Upgrade level</label>
-        <input id="raid-upgrade-level" type="number" min="1" max="51" step="0.5" value="40">
+        <label for="raid-dodge-mode">Dodging</label>
+        <select id="raid-dodge-mode" aria-describedby="raid-dodge-help">
+          <option value="none" selected>No dodging</option>
+          <option value="charged">Charged attacks only</option>
+          <option value="all">All attacks</option>
+        </select>
       </div>
+
+      <div class="field">
+        <label for="raid-dodge-success">Dodge success (%)</label>
+        <input id="raid-dodge-success" type="number" min="0" max="100" step="5" value="100" aria-describedby="raid-dodge-help">
+      </div>
+
+      <div class="field">
+        <label for="raid-upgrade-level">Power-up target level</label>
+        <input id="raid-upgrade-level" aria-describedby="raid-upgrade-help" type="number" min="1" max="51" step="0.5" value="40">
+      </div>
+
+      <p id="raid-dodge-help" class="subtle raid-settings-help">Dodge estimates include reduced damage, less energy from incoming hits, and 0.5 seconds spent per attempt. Applies to all accounts. Unknown boss moves use the normal damage estimate.</p>
+      <p id="raid-upgrade-help" class="subtle raid-settings-help">Power-up target level is used for upgrade suggestions only. Current teams use your saved Pokémon levels.</p>
 
       <div class="check-row">
         <label><input id="boss-shadow-toggle" type="checkbox"> shadow raid boss</label>

@@ -434,7 +434,7 @@ table {
 }
 
 .raid-control-surface {
-  grid-template-columns: minmax(220px, 1.4fr) repeat(6, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
 .raid-roster-grid {
@@ -1327,3 +1327,7 @@ body.quick-edit-open {
 }
 
 .roster-backup-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0 20px; }
+
+.raid-settings-help { grid-column: 1 / -1; margin: 0; }
+
+.raid-control-surface .field-wide { min-width: 0; }
