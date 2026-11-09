@@ -1331,3 +1331,6 @@ body.quick-edit-open {
 .raid-settings-help { grid-column: 1 / -1; margin: 0; }
 
 .raid-control-surface .field-wide { min-width: 0; }
+
+.buddy-recommendation { margin: 12px 0; padding: 12px; border: 1px solid var(--accent); border-radius: 10px; }
+.buddy-badge { color: var(--accent); font-size: 0.8rem; font-weight: 700; margin: 4px 0; }

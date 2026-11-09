@@ -4,7 +4,7 @@ const vm = require("vm");
 const elementIds = [
   "manual-status", "entry-account", "entry-name", "entry-form", "entry-cp",
   "entry-current-hp", "entry-level", "entry-atk", "entry-def", "entry-hp", "entry-fast",
-  "entry-hidden-power-wrap", "entry-hidden-power-type", "entry-charged", "entry-charged-2", "entry-notes", "entry-shadow", "entry-purified",
+  "entry-hidden-power-wrap", "entry-hidden-power-type", "entry-charged", "entry-charged-2", "entry-notes", "entry-shadow", "entry-purified", "entry-best-buddy",
   "entry-can-mega", "entry-can-mega-wrap", "entry-mega-form-options", "entry-super-max-options", "entry-preview",
   "inference-summary", "inference-select", "apply-inference-button",
   "add-entry-button", "reset-entry-button", "manual-csv-output",
@@ -192,16 +192,21 @@ __result = {
 context.__read = file => fs.readFileSync(file, "utf8");
 vm.runInContext(`${appCode}\n${testCode}`, context);
 vm.runInContext(`
-const ownedRow = normalizeStoredRow({...state.rows[0], name: "Mewtwo", super_max_forms: "Mega Mewtwo X", notes: "preserve unlocks"});
+const ownedRow = normalizeStoredRow({...state.rows[0], name: "Mewtwo", super_max_forms: "Mega Mewtwo X", best_buddy_eligible: "true", notes: "preserve unlocks"});
 const ownedCSV = serializeCSV([CSV_HEADERS, rowToCSVCells(ownedRow)]);
 const roundTrip = parseRosterCSVRows(ownedCSV)[0];
+if (roundTrip.best_buddy_eligible !== "true") throw Error("Best Buddy eligibility must survive manual CSV export/import");
 if (roundTrip.super_max_forms !== "Mega Mewtwo X" || roundTrip.notes !== "preserve unlocks") throw Error("Manual CSV export/import must preserve per-form unlocks and existing fields");
 state.rows = [ownedRow];
 editRow(0);
 if (!el.entrySuperMaxOptions.innerHTML.includes('value="Mega Mewtwo X" checked') || el.entrySuperMaxOptions.innerHTML.includes('value="Mega Mewtwo Y" checked')) throw Error("Manual editor must restore the specific unlocked form");
+if (!el.entryBestBuddy.checked) throw Error("Manual edit must restore Best Buddy eligibility");
 el.entrySuperMaxOptions.querySelectorAll = () => [{value: "Mega Mewtwo X"}];
 el.entryNotes.value = "updated notes";
 const collected = collectFormRow();
+if (collected.best_buddy_eligible !== "true") throw Error("Editing other fields must preserve Best Buddy eligibility");
+el.entryBestBuddy.checked = false;
+if (collectFormRow().best_buddy_eligible !== "false") throw Error("Unchecking must clear Best Buddy eligibility");
 if (collected.super_max_forms !== "Mega Mewtwo X" || collected.notes !== "updated notes") throw Error("Editing normal fields must retain Super Max unlocks");
 el.entrySuperMaxOptions.querySelectorAll = () => [];
 if (collectFormRow().super_max_forms !== "") throw Error("Unchecking Super Max must remove the unlock");

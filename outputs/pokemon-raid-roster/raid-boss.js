@@ -579,69 +579,102 @@ function buildComboPlan(accounts, entriesByAccount, combo, enemy, settings, incl
 
   for (const account of accounts) {
     const entries = entriesByAccount.get(account) || [];
-    const selectedMega = combo.get(account);
-    const activeMega = selectedMega && !selectedMega.isNone ? selectedMega : null;
-    const selectedUid = activeMega?.entry?.uid || null;
-    const slotSources = boostSources.filter(source => source.key !== activeMega?.candidateKey);
-    const accountSettings = withAccountEffects(settings, account);
-    const slot0 = activeMega ? rankMegaCandidate(activeMega, enemy, accountSettings, slotSources) : null;
-    const regularSettings = {...accountSettings, boostSources, requireEffective: true};
-    const results = entries
-      .filter(entry => entry.uid !== selectedUid)
-      .map(entry => {
-        const ranking = rankPokemon(entry.pokemon, entry, enemy, regularSettings);
-        if (!ranking) return null;
-        ranking.account = account;
-        ranking.entry = entry;
-        return ranking;
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.metric - a.metric);
-
-    const activeRegularCount = slot0 ? 5 : 6;
-    const best = results[0]?.metric || 0;
-    results.forEach((result, index) => {
-      result.accountRank = index + 1;
-      result.inActiveRegularTeam = index < activeRegularCount;
-      result.relative = best > 0 ? 100 * result.metric / best : 0;
-    });
-
-    const activeRegulars = results.slice(0, activeRegularCount);
-    const activeMembers = [slot0, ...activeRegulars].filter(Boolean);
-    const topSix = results.slice(0, 6);
-    const cutoff = results[activeRegularCount - 1]?.metric || 0;
-    const currentByEntry = new Map(results.map(result => [result.entry.uid, result]));
-    const group = {
-      account,
-      cutoff,
-      cutoffSlot: activeRegularCount,
-      best,
-      activeRegularCount,
-      activeEntryUids: new Set(activeRegulars.map(result => result.entry.uid))
+    // For this fixed Mega combo, changing buddies only changes one entry's stats.
+    // Clone cached rankings because lineup sorting adds per-plan annotations.
+    const rankingCache = new Map();
+    const cachedRanking = (key, evaluate) => {
+      if (!rankingCache.has(key)) rankingCache.set(key, evaluate());
+      const result = rankingCache.get(key);
+      return result ? {...result} : null;
     };
-    const upgrades = includeUpgrades
-      ? entries
+    const evaluateBuddy = (buddyUid, withUpgrades = false) => {
+      const selectedMega = combo.get(account);
+      const activeMega = selectedMega && !selectedMega.isNone ? selectedMega : null;
+      const selectedUid = activeMega?.entry?.uid || null;
+      const slotSources = boostSources.filter(source => source.key !== activeMega?.candidateKey);
+      const accountSettings = {...withAccountEffects(settings, account), bestBuddyUid: buddyUid};
+      const slot0 = activeMega ? cachedRanking(`mega:${Number(selectedUid === buddyUid)}`, () => rankMegaCandidate(activeMega, enemy, accountSettings, slotSources)) : null;
+      const regularSettings = {...accountSettings, boostSources, requireEffective: true};
+      const results = entries
         .filter(entry => entry.uid !== selectedUid)
-        .flatMap(entry => collectRaidUpgradeCandidatesForEntry(entry, currentByEntry.get(entry.uid) || null, group, enemy, regularSettings))
-        .sort(sortUpgradeCandidates)
-      : [];
+        .map(entry => {
+          const ranking = cachedRanking(`regular:${entry.uid}:${Number(entry.uid === buddyUid)}`, () => rankPokemon(entry.pokemon, entry, enemy, regularSettings));
+          if (!ranking) return null;
+          ranking.account = account;
+          ranking.entry = entry;
+          return ranking;
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.metric - a.metric);
 
-    const plan = {
-      account,
-      adventureEffects: accountSettings.adventureEffects,
-      slot0,
-      selectedMega: activeMega,
-      boostSources,
-      topSix,
-      activeRegulars,
-      activeMembers,
-      activeRegularCount,
-      cutoff,
-      cutoffSlot: activeRegularCount,
-      upgrades,
-      teamMetric: averageValue(activeMembers, result => result.metric),
-      teamDps: averageValue(activeMembers, result => result.dps)
+      const activeRegularCount = slot0 ? 5 : 6;
+      const best = results[0]?.metric || 0;
+      results.forEach((result, index) => {
+        result.accountRank = index + 1;
+        result.inActiveRegularTeam = index < activeRegularCount;
+        result.relative = best > 0 ? 100 * result.metric / best : 0;
+      });
+
+      const activeRegulars = results.slice(0, activeRegularCount);
+      const activeMembers = [slot0, ...activeRegulars].filter(Boolean);
+      const topSix = results.slice(0, 6);
+      const cutoff = results[activeRegularCount - 1]?.metric || 0;
+      const currentByEntry = new Map(results.map(result => [result.entry.uid, result]));
+      const group = {
+        account,
+        cutoff,
+        cutoffSlot: activeRegularCount,
+        best,
+        activeRegularCount,
+        activeEntryUids: new Set(activeRegulars.map(result => result.entry.uid))
+      };
+      const upgrades = withUpgrades
+        ? entries
+          .filter(entry => entry.uid !== selectedUid)
+          .flatMap(entry => collectRaidUpgradeCandidatesForEntry(entry, currentByEntry.get(entry.uid) || null, group, enemy, regularSettings))
+          .sort(sortUpgradeCandidates)
+        : [];
+
+      const plan = {
+        account,
+        adventureEffects: accountSettings.adventureEffects,
+        slot0,
+        selectedMega: activeMega,
+        boostSources,
+        topSix,
+        activeRegulars,
+        activeMembers,
+        activeRegularCount,
+        cutoff,
+        cutoffSlot: activeRegularCount,
+        upgrades,
+        teamMetric: averageValue(activeMembers, result => result.metric),
+        teamDps: averageValue(activeMembers, result => result.dps)
+      };
+      return plan;
     };
+    const baseline = evaluateBuddy(null);
+    let best = baseline;
+    let bestBuddyUid = null;
+    const eligible = entries.filter(entry => entry.bestBuddyEligible);
+    for (const entry of eligible) {
+      const candidate = evaluateBuddy(entry.uid);
+      if (candidate.teamMetric > best.teamMetric + 1e-9) {
+        best = candidate;
+        bestBuddyUid = entry.uid;
+      }
+    }
+    const plan = includeUpgrades ? evaluateBuddy(bestBuddyUid, true) : best;
+    const boosted = plan.activeMembers.find(result => result.bestBuddyBoosted);
+    plan.buddyEligibleCount = eligible.length;
+    plan.buddyRecommendation = boosted ? {
+      entry: boosted.entry,
+      pokemon: boosted.pokemon,
+      shadow: boosted.shadow,
+      level: boosted.level,
+      metricGain: plan.teamMetric - baseline.teamMetric,
+      dpsGain: plan.teamDps - baseline.teamDps
+    } : null;
     accountPlans.push(plan);
   }
 
@@ -693,7 +726,7 @@ function getMegaCandidates(accountEntries, enemy, settings, limit) {
 
   const sorted = candidates
     .sort((a, b) => b.scoreForSort - a.scoreForSort || b.metric - a.metric)
-    .slice(0, Math.max(1, limit));
+    .filter((candidate, index) => index < Math.max(1, limit) || candidate.entry.bestBuddyEligible);
   return sorted.length ? sorted : [noMega];
 }
 
@@ -794,6 +827,9 @@ function getBattleStats(pokemon, entry, adventureEffects = makeAdventureEffectSt
 }
 
 function rankPokemon(pokemon, entry, enemy, settings) {
+  // Eligibility alone never grants a boost: exactly one UID is chosen per account.
+  const bestBuddyBoosted = Boolean(entry.bestBuddyEligible && settings.bestBuddyUid != null && entry.uid === settings.bestBuddyUid);
+  entry = {...entry, buddyBoostActive: bestBuddyBoosted};
   const megaLevel = getEntryMegaLevel(pokemon, entry);
   const adventureEffects = settings.adventureEffects || makeAdventureEffectState();
   const {atk, def, hp} = getBattleStats(pokemon, entry, adventureEffects, megaLevel);
@@ -829,6 +865,7 @@ function rankPokemon(pokemon, entry, enemy, settings) {
           shadow: entry.shadow,
           level: getBattleLevel(pokemon, entry, megaLevel),
           baseLevel: entry.level,
+          bestBuddyBoosted,
           megaLevel: getMegaAdditionalChargedMoves(pokemon).length ? normalizeMegaLevel(megaLevel) : null,
           ivs: entry.ivs,
           cp: getPokemonCP(getPokemonStats(pokemon, getBattleLevel(pokemon, entry, megaLevel), entry.ivs, false)),
@@ -844,7 +881,7 @@ function rankPokemon(pokemon, entry, enemy, settings) {
           cmMult,
           adventureEffects,
           adventureDamageMultiplier,
-          notes: [entry.notes, entry.levelNote, getMegaAdditionalChargedMoves(pokemon).length ? `Mega Level ${normalizeMegaLevel(megaLevel)}${normalizeMegaLevel(megaLevel) === 4 ? ": +2 temporary Pokémon levels; Plus move power ×1.3" : ""}` : ""].filter(Boolean).join("; ")
+          notes: [entry.notes, entry.levelNote, bestBuddyBoosted ? "Recommended active Best Buddy: +1 temporary Pokémon level" : "", getMegaAdditionalChargedMoves(pokemon).length ? `Mega Level ${normalizeMegaLevel(megaLevel)}${normalizeMegaLevel(megaLevel) === 4 ? ": +2 temporary Pokémon levels; Plus move power ×1.3" : ""}` : ""].filter(Boolean).join("; ")
         };
       }
     }
@@ -1043,7 +1080,7 @@ function findMinimumLevelForScenario(entry, scenario, enemy, settings, cutoff) {
   const start = Math.min(scenario.level, nextHalfLevel(entry.level));
   for (let level = start; level <= scenario.level + 0.001; level += 0.5) {
     const after = rankScenario(entry, enemy, settings, roundToHalf(level), scenario.useCurrentMoves);
-    if (after && after.metric >= cutoff) return after.level;
+    if (after && after.metric >= cutoff) return after.baseLevel ?? after.level;
   }
   return scenario.level;
 }
@@ -1219,6 +1256,7 @@ function renderAccountPlan(accountPlan, settings, plan) {
       <span class="damage-share-pill">${formatNumber(bossHealthPercent, 1)}% boss HP</span>
       <span class="subtle">${escapeHtml(accountPlan.slot0 ? "Mega-active party" : "Six regular attackers")}</span>
     </div>
+    ${renderBuddyRecommendation(accountPlan, settings)}
     ${adventureText ? `<div class="adventure-effect-summary">${escapeHtml(adventureText)}</div>` : ""}
     <div class="damage-share-card">
       <div class="damage-share-top">
@@ -1232,6 +1270,16 @@ function renderAccountPlan(accountPlan, settings, plan) {
     ${regularSection}
     ${upgradeSection}
   </section>`;
+}
+
+function renderBuddyRecommendation(accountPlan, settings) {
+  const buddy = accountPlan.buddyRecommendation;
+  if (!buddy) return `<div class="buddy-recommendation subtle">${accountPlan.buddyEligibleCount ? "No eligible Best Buddy improves this active team." : "Mark Pokémon as Best Buddy unlocked / eligible to get an active-buddy recommendation."}</div>`;
+  const rosterNumber = buddy.entry.rosterNumber || Math.max(1, Number(buddy.entry.uid) - 1);
+  return `<div class="buddy-recommendation">
+    <strong>Recommended buddy: ${escapeHtml(displayPokemonName(buddy.pokemon, buddy.shadow))} · Roster #${escapeHtml(rosterNumber)}</strong>
+    <div class="subtle">Set this Pokémon as your current buddy for +1 level (battle Lv ${formatNumber(buddy.level, 1)}). Included in this plan: +${formatNumber(buddy.metricGain, 3)} team ${escapeHtml(settings.metric)} versus no buddy boost.</div>
+  </div>`;
 }
 
 function formatDamageCapacity(plan) {
@@ -1262,6 +1310,7 @@ function renderPokemonCard(result, settings, slot, slotLabel, detailText, extraC
     <img class="pokemon-sprite" src="${escapeAttr(pokemonImageUrl(result.pokemon))}" alt="${escapeAttr(name)}" loading="eager" onerror="this.onerror=null;this.src='${escapeAttr(basePokemonImageUrl(result.pokemon))}'">
     <div class="pokemon-card-body">
       <div class="pokemon-name">${escapeHtml(name)}</div>
+      ${result.bestBuddyBoosted ? `<div class="buddy-badge">Recommended active buddy · +1 level</div>` : ""}
       <div class="cp-line">CP ${result.cp.toLocaleString()}</div>
       <div class="subtle">Lv ${formatNumber(result.level, 1)} · ${result.ivs.atk}/${result.ivs.def}/${result.ivs.hp}</div>
       <div class="subtle">${escapeHtml(slotLabel)} · ${escapeHtml(detailText)}</div>
@@ -1278,9 +1327,10 @@ function renderUpgradeCard(candidate, settings, index) {
   const rosterNumber = getRosterNumberForRowNumber(candidate.entryUid);
   const targetSlot = candidate.cutoffSlot || 6;
   const threshold = candidate.cutoff > 0 ? `beats #${targetSlot} at ${formatNumber(candidate.cutoff, 2)} ${settings.metric}` : `fills open slot ${targetSlot}`;
-  const targetLevel = candidate.minLevel || after.level;
-  const costs = candyCostToLevel(before.level, targetLevel);
-  const levelText = `Lv ${formatNumber(before.level, 1)} -> ${formatNumber(targetLevel, 1)} (+${formatNumber(costs.levelGain, 1)} levels)`;
+  const targetLevel = candidate.minLevel || after.baseLevel || after.level;
+  const fromLevel = before.baseLevel ?? before.level;
+  const costs = candyCostToLevel(fromLevel, targetLevel);
+  const levelText = `Lv ${formatNumber(fromLevel, 1)} -> ${formatNumber(targetLevel, 1)} (+${formatNumber(costs.levelGain, 1)} levels)`;
   const moveText = formatMoveChange(before, after);
   return `<button class="pokemon-card upgrade-card" type="button" data-entry-uid="${escapeAttr(candidate.entryUid)}" aria-label="Edit roster #${escapeAttr(rosterNumber)} for ${escapeAttr(name)}">
     <div class="card-slot">U${index}</div>
@@ -1315,7 +1365,7 @@ function renderRaidUpgradeCandidates(candidates, settings) {
     const before = candidate.before;
     const after = getCandidateDisplayAfter(candidate);
     const moveChange = didMovesChange(before, after) ? `${after.fastMove.name} / ${after.chargedMove.name}` : "same moves";
-    const levelText = `Lv ${formatNumber(before.level, 1)} -> ${formatNumber(after.level, 1)}`;
+    const levelText = `Lv ${formatNumber(before.baseLevel ?? before.level, 1)} -> ${formatNumber(after.baseLevel ?? after.level, 1)}`;
     const targetSlot = candidate.cutoffSlot || 6;
     const topSixText = candidate.crossesActive
       ? candidate.cutoff > 0 ? `Barely beats active #${targetSlot} (${formatNumber(candidate.cutoff, 2)})` : `Would fill open active slot ${targetSlot}`
@@ -1485,6 +1535,7 @@ function renderRosterEntryDetails(entry, usableEntry, resolvedCp, settings) {
         ${renderTextField("Notes", "notes", entry.notes)}
         <label class="check-field"><input type="checkbox" name="shadow" ${entry.shadow ? "checked" : ""}> Shadow</label>
         <label class="check-field"><input type="checkbox" name="purified" ${entry.purified ? "checked" : ""}> Purified</label>
+        <label class="check-field"><input type="checkbox" name="best_buddy_eligible" ${entry.bestBuddyEligible ? "checked" : ""}> Best Buddy unlocked / eligible</label>
         ${megaControls}
       </div>
       <div class="roster-data-grid">
@@ -2028,6 +2079,7 @@ function normalizeHeader(header) {
     megaoption: "mega_forms", megaoptions: "mega_forms", megaevolutions: "mega_forms",
     primalforms: "mega_forms",
     supermaxforms: "super_max_forms", megalevel4forms: "super_max_forms",
+    bestbuddy: "best_buddy_eligible", bestbuddyeligible: "best_buddy_eligible", canbestbuddy: "best_buddy_eligible",
     fast: "fast_move", fastmove: "fast_move", quickmove: "fast_move", quick: "fast_move",
     charged: "charged_move", chargemove: "charged_move", chargedmove: "charged_move", charge: "charged_move", special: "charged_move",
     charged2: "charged_move_2", chargemove2: "charged_move_2", chargedmove2: "charged_move_2",
@@ -2057,6 +2109,7 @@ function normalizeRosterEntry(obj) {
     canMega: parseBoolean(obj.can_mega),
     megaForms: parseMegaFormTokens(obj.mega_forms),
     superMaxForms: parseMegaFormTokens(obj.super_max_forms),
+    bestBuddyEligible: parseBoolean(obj.best_buddy_eligible),
     fastMove: obj.fast_move || "",
     chargedMove: obj.charged_move || "",
     chargedMove2: obj.charged_move_2 || "",
@@ -2416,7 +2469,7 @@ function getEntryMegaLevel(pokemon, entry) {
 }
 
 function getBattleLevel(pokemon, entry, megaLevel = getEntryMegaLevel(pokemon, entry)) {
-  return entry.level + (getMegaAdditionalChargedMoves(pokemon).length && normalizeMegaLevel(megaLevel) === 4 ? 2 : 0);
+  return entry.level + (getMegaAdditionalChargedMoves(pokemon).length && normalizeMegaLevel(megaLevel) === 4 ? 2 : 0) + (entry.bestBuddyEligible && entry.buddyBoostActive ? 1 : 0);
 }
 
 function getMegaChargedMove(pokemon, move, megaLevel = 4) {

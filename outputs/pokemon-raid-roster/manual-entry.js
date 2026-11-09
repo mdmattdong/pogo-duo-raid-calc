@@ -49,7 +49,7 @@ const CPM = [
 
 const CSV_HEADERS = [
   "account", "name", "form", "level", "atk_iv", "def_iv", "hp_iv",
-  "shadow", "purified", "fast_move", "charged_move", "charged_move_2", "cp", "can_mega", "mega_forms", "super_max_forms", "notes"
+  "shadow", "purified", "fast_move", "charged_move", "charged_move_2", "cp", "can_mega", "mega_forms", "super_max_forms", "notes", "best_buddy_eligible"
 ];
 
 const DEFAULT_PLAYER_NAMES = ["Main", "Alt"];
@@ -94,7 +94,7 @@ function bindElements() {
   for (const id of [
     "manual-status", "entry-account", "entry-name", "entry-form", "entry-cp",
     "entry-current-hp", "entry-level", "entry-atk", "entry-def", "entry-hp", "entry-fast",
-    "entry-hidden-power-wrap", "entry-hidden-power-type", "entry-charged", "entry-charged-2", "entry-notes", "entry-shadow", "entry-purified",
+    "entry-hidden-power-wrap", "entry-hidden-power-type", "entry-charged", "entry-charged-2", "entry-notes", "entry-shadow", "entry-purified", "entry-best-buddy",
     "entry-can-mega", "entry-can-mega-wrap", "entry-mega-form-options", "entry-super-max-options", "entry-preview",
     "inference-summary", "inference-select", "apply-inference-button",
     "add-entry-button", "reset-entry-button", "manual-csv-output",
@@ -716,6 +716,7 @@ function collectFormRow() {
     hp_iv: clampNumber(el.entryHp.value, 0, 15, 15),
     shadow: String(el.entryShadow.checked || shadowPrefix),
     purified: String(el.entryPurified.checked),
+    best_buddy_eligible: String(el.entryBestBuddy.checked),
     fast_move: selectedFastMoveName(),
     charged_move: el.entryCharged.value,
     charged_move_2: el.entryCharged2.value,
@@ -747,6 +748,7 @@ function resetForm() {
   el.entryHp.value = "15";
   el.entryShadow.checked = false;
   el.entryPurified.checked = false;
+  el.entryBestBuddy.checked = false;
   el.entryCanMega.checked = false;
   el.entryMegaFormOptions.innerHTML = "";
   el.entryFast.value = "";
@@ -779,6 +781,7 @@ function editRow(index) {
   el.entryHp.value = row.hp_iv;
   el.entryShadow.checked = parseBoolean(row.shadow);
   el.entryPurified.checked = parseBoolean(row.purified);
+  el.entryBestBuddy.checked = parseBoolean(row.best_buddy_eligible);
   el.entryNotes.value = row.notes || "";
   handlePokemonInput();
   setFastMoveFromSavedValue(row.fast_move || "");
@@ -1138,6 +1141,7 @@ function normalizeHeader(header) {
     megaoption: "mega_forms", megaoptions: "mega_forms", megaevolutions: "mega_forms",
     primalforms: "mega_forms",
     supermaxforms: "super_max_forms", megalevel4forms: "super_max_forms",
+    bestbuddy: "best_buddy_eligible", bestbuddyeligible: "best_buddy_eligible", canbestbuddy: "best_buddy_eligible",
     fast: "fast_move", fastmove: "fast_move", quickmove: "fast_move", quick: "fast_move",
     charged: "charged_move", chargemove: "charged_move", chargedmove: "charged_move", charge: "charged_move", special: "charged_move",
     charged2: "charged_move_2", chargemove2: "charged_move_2", chargedmove2: "charged_move_2",
@@ -1161,6 +1165,7 @@ function normalizeStoredRow(row = {}) {
     hp_iv: clampNumber(row.hp_iv, 0, 15, 15),
     shadow: String(parseBoolean(row.shadow) || shadowPrefix),
     purified: String(parseBoolean(row.purified)),
+    best_buddy_eligible: String(parseBoolean(row.best_buddy_eligible)),
     fast_move: String(row.fast_move || "").trim(),
     charged_move: String(row.charged_move || "").trim(),
     charged_move_2: String(row.charged_move_2 || "").trim(),

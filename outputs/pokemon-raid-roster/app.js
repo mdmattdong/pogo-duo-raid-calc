@@ -535,6 +535,7 @@ function normalizeHeader(header) {
     megaoption: "mega_forms", megaoptions: "mega_forms",
     megaevolutions: "mega_forms", primalforms: "mega_forms",
     supermaxforms: "super_max_forms", megalevel4forms: "super_max_forms",
+    bestbuddy: "best_buddy_eligible", bestbuddyeligible: "best_buddy_eligible", canbestbuddy: "best_buddy_eligible",
     fast: "fast_move", fastmove: "fast_move", quickmove: "fast_move", quick: "fast_move",
     charged: "charged_move", chargemove: "charged_move", chargedmove: "charged_move", charge: "charged_move", special: "charged_move",
     charged2: "charged_move_2", chargemove2: "charged_move_2", chargedmove2: "charged_move_2",
@@ -564,6 +565,7 @@ function normalizeRosterEntry(obj) {
     canMega: parseBoolean(obj.can_mega),
     megaForms: parseMegaFormTokens(obj.mega_forms),
     superMaxForms: parseMegaFormTokens(obj.super_max_forms),
+    bestBuddyEligible: parseBoolean(obj.best_buddy_eligible),
     fastMove: obj.fast_move || "",
     chargedMove: obj.charged_move || "",
     chargedMove2: obj.charged_move_2 || "",
@@ -1846,6 +1848,7 @@ function renderRosterEntryDetails(entry, usableEntry, resolvedCp, settings) {
         ${renderTextField("Notes", "notes", entry.notes)}
         <label class="check-field"><input type="checkbox" name="shadow" ${entry.shadow ? "checked" : ""}> Shadow</label>
         <label class="check-field"><input type="checkbox" name="purified" ${entry.purified ? "checked" : ""}> Purified</label>
+        <label class="check-field"><input type="checkbox" name="best_buddy_eligible" ${entry.bestBuddyEligible ? "checked" : ""}> Best Buddy unlocked / eligible</label>
         ${megaControls}
       </div>
       <div class="roster-data-grid">

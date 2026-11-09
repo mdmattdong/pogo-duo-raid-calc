@@ -187,3 +187,42 @@ on October 17, 2026 (`dodgeDurationMs: 500`,
 `dodgeDamageReductionPercent: 0.75`). The official [raid troubleshooting
 guide](https://niantic.helpshift.com/hc/en/6-pokemon-go/faq/2738-i-m-unable-to-defeat-a-raid-boss/)
 also explains using dodges to reduce incoming charged-attack damage.
+
+## Best Buddy eligibility and raid recommendations
+
+Mark an individual Pokémon **Best Buddy unlocked / eligible** in manual entry
+or either planner's full roster editor. This means the Pokémon has already
+reached Best Buddy and can receive its boost when set as your current buddy.
+The optional CSV column `best_buddy_eligible` accepts `true`/`false` and survives
+manual exports, imports, browser saves, and edits. Existing rosters default to
+unchecked; no eligibility is inferred or changed automatically.
+
+Best Buddy adds **one full Pokémon level** (two half-level power-ups) while
+that Pokémon is the current buddy. Enter permanent level and CP in your roster,
+without temporary buddy or Mega boosts. Eligibility alone does not boost all
+marked Pokémon. For each tested Mega combination, the raid calculator compares
+no active buddy against each eligible individual, reranks the actual lineup,
+and chooses the best team for the selected DPS/TDO/eDPS metric. Each account
+can have at most one boosted buddy. Eligible bench attackers may enter the
+active team after the boost; different copies of the same species stay separate.
+Mega choices are compared with these buddy recommendations included.
+
+The account's raid plan displays **Recommended buddy**, the specific roster
+number, boosted battle level, and gain over no buddy for that Mega combination.
+The recommended Pokémon's card is marked **Recommended active buddy · +1 level**.
+Set that Pokémon as your buddy in Pokémon GO to match the displayed damage;
+the calculator cannot change your in-game buddy. If no eligible choice improves
+the active team, no buddy is recommended. Recommendation and damage depend on
+the selected boss, moves, dodging, party settings, and metric.
+
+Best Buddy stacks with an eligible Super Max Mega's temporary +2 levels:
+permanent level 50 becomes battle level 53 when both boosts apply. Saved levels,
+IVs, CP, moves, and Super Max unlocks remain unchanged. Power-up suggestions
+and candy calculations use permanent levels; the free buddy level is not
+counted as a paid power-up. Upgrade suggestions hold the recommended current
+buddy fixed. The type evaluator retains its existing Mega comparison settings
+and preserves eligibility; active-buddy selection happens in the raid calculator.
+
+Sources: [Official Best Buddy overview](https://www.pokemon.com/uk/strategy/tips-to-make-the-most-of-buddy-adventure-in-pokemon-go),
+[buddy level boost guide](https://pokemongohub.net/post/guide/go-hub-guide-to-buddy-interactions-in-pokemon-go/),
+and [official Mega and Best Buddy boost stacking](https://niantic.helpshift.com/hc/en/6-pokemon-go/faq/3334-using-a-mega-evolved-pokemon/).
