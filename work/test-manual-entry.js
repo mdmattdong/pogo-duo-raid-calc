@@ -11,7 +11,7 @@ const elementIds = [
   "manual-row-count", "manual-account-count", "manual-mega-count",
   "manual-messages", "manual-rows-body", "pokemon-suggestions",
   "copy-csv-button", "download-csv-button", "use-roster-button",
-  "clear-rows-button", "row-player-filter"
+  "clear-rows-button", "row-player-filter", "row-search", "row-sort", "manual-view-count"
 ];
 
 function makeClassList() {
@@ -145,7 +145,7 @@ if (!el.manualRowsBody.innerHTML.includes("data-row-index=\\"0\\"") || !el.manua
 }
 el.rowPlayerFilter.value = "Alt";
 handleRowPlayerFilterChange();
-if (!el.manualRowsBody.innerHTML.includes("No rows for Alt")) throw new Error("Player filter should hide rows for other players");
+if (!el.manualRowsBody.innerHTML.includes("No Pokémon match your search and player filter")) throw new Error("Player filter should hide rows for other players");
 el.rowPlayerFilter.value = "Main";
 handleRowPlayerFilterChange();
 if (!el.manualRowsBody.innerHTML.includes("Groudon")) throw new Error("Player filter should show rows for the selected player");
@@ -210,5 +210,78 @@ if (collectFormRow().best_buddy_eligible !== "false") throw Error("Unchecking mu
 if (collected.super_max_forms !== "Mega Mewtwo X" || collected.notes !== "updated notes") throw Error("Editing normal fields must retain Super Max unlocks");
 el.entrySuperMaxOptions.querySelectorAll = () => [];
 if (collectFormRow().super_max_forms !== "") throw Error("Unchecking Super Max must remove the unlock");
+`, context);
+vm.runInContext(`
+const testRows = [
+  {name: "Groudon", account: "Main", level: "40", cp: "4159", notes: "legacy"},
+  {name: "Mewtwo", account: "Main", level: "50", cp: "4,500", date_added: "2026-10-01T12:00:00Z", notes: "legacy psychic", best_buddy_eligible: "true", super_max_forms: "Mega Mewtwo X"},
+  {name: "Bulbasaur", account: "Main", level: "20", cp: "", date_added: "2026-11-08T12:00:00Z"},
+  {name: "Mewtwo", account: "Alt", level: "50", cp: "4499", date_added: "2026-10-01T12:00:00Z", notes: "other copy"},
+  {name: "Unmatched", account: "Main", level: "", cp: "", date_added: "invalid"}
+].map(normalizeStoredRow);
+state.rows = testRows;
+state.rowPlayerFilter = ALL_PLAYERS_VALUE;
+state.rowSearch = "";
+const beforeView = JSON.stringify(state.rows);
+const csvBeforeView = getManualCSV();
+const indices = () => getVisibleManualRows().map(item => item.index).join(",");
+state.rowSort = "dex-asc";
+if (indices() !== "2,1,3,0,4") throw Error("Pokédex sort must be numeric, stable, and put unmatched names last");
+state.rowSort = "dex-desc";
+if (indices() !== "0,1,3,2,4") throw Error("Descending Pokédex sort must keep missing numbers last");
+state.rowSort = "cp-asc";
+if (indices() !== "2,0,3,1,4") throw Error("Ascending CP sort must keep missing CP last");
+state.rowSort = "cp-desc";
+if (indices() !== "1,3,0,2,4") throw Error("CP sort must handle commas, calculated CP, and missing CP");
+const calculated = getVisibleManualRows().find(item => item.index === 2);
+if (!calculated.calculatedCp || !(calculated.cp > 0) || state.rows[2].cp !== "") throw Error("Calculated CP must not overwrite saved CP");
+state.rowSort = "date-desc";
+if (indices() !== "2,1,3,0,4") throw Error("Date sort must put newest first and unknown dates last");
+state.rowSort = "date-asc";
+if (indices() !== "1,3,2,0,4") throw Error("Date sort must keep equal dates stable and unknown dates last");
+state.rowSearch = "#150";
+if (indices() !== "1,3") throw Error("Exact Pokédex search must find both copies");
+state.rowSearch = "mewtwo legacy";
+if (indices() !== "1") throw Error("Multi-word search must match name and notes together");
+state.rowSearch = "#150";
+state.rowPlayerFilter = "Alt";
+if (indices() !== "3") throw Error("Player and text filters must combine");
+renderRows();
+if (!el.manualRowsBody.innerHTML.includes('data-row-index="3"') || !el.manualViewCount.textContent.includes("1 of 5")) throw Error("Rendered row must retain its original edit index and show result count");
+editRow(getVisibleManualRows()[0].index);
+if (state.editingIndex !== 3 || el.entryAccount.value !== "Alt") throw Error("Editing a sorted and filtered copy must target the correct original row");
+if (JSON.stringify(state.rows) !== beforeView || getManualCSV() !== csvBeforeView) throw Error("Search, sort, render and opening an edit must not mutate roster or CSV order");
+state.rowSearch = "missingzzzz";
+renderRows();
+if (!el.manualRowsBody.innerHTML.includes("No Pokémon match")) throw Error("Empty search results need a clear message");
+state.rowSearch = "";
+state.rowSort = "entry";
+state.rowPlayerFilter = ALL_PLAYERS_VALUE;
+if (indices() !== "0,1,2,3,4") throw Error("Original entry order must remain available");
+const datedRoundTrip = parseRosterCSVRows(getManualCSV());
+if (datedRoundTrip[1].date_added !== testRows[1].date_added || datedRoundTrip[1].best_buddy_eligible !== "true" || datedRoundTrip[1].super_max_forms !== "Mega Mewtwo X") throw Error("CSV round trip must preserve dates and existing unlocks");
+const reconciledDate = reconcileSavedRows([testRows[1]], [{...testRows[1], date_added: ""}]);
+if (reconciledDate[0].date_added !== testRows[1].date_added) throw Error("Older shared CSV must not erase a saved manual timestamp");
+editRow(2);
+state.editingIndex = null;
+const addedAfter = Date.now();
+saveCurrentEntry();
+const addedIndex = state.rows.length - 1;
+const addedTimestamp = state.rows[addedIndex].date_added;
+if (!addedTimestamp || Date.parse(addedTimestamp) < addedAfter || Date.parse(addedTimestamp) > Date.now()) throw Error("New rows must receive an actual creation timestamp");
+editRow(addedIndex);
+el.entryNotes.value = "edited after adding";
+saveCurrentEntry();
+if (state.rows[addedIndex].date_added !== addedTimestamp) throw Error("Edits must retain the original date added");
+editRow(0);
+el.entryNotes.value = "edited legacy";
+saveCurrentEntry();
+if (state.rows[0].date_added !== "") throw Error("Editing a legacy row must not invent its date added");
+state.rowSearch = "other copy";
+state.rowSort = "cp-desc";
+const removeIndex = getVisibleManualRows()[0].index;
+removeRow(removeIndex);
+if (state.rows.some(row => row.account === "Alt") || !state.rows.some(row => row.name === "Mewtwo" && row.account === "Main")) throw Error("Removing a filtered copy must not remove a different original row");
+console.log("Manual list: search, numeric sorting, missing dates, stable edit/remove indices, timestamp lifecycle and full-roster preservation passed");
 `, context);
 console.log(JSON.stringify(context.__result, null, 2));

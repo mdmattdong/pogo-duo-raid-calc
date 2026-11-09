@@ -153,14 +153,32 @@
     <section class="results-section" aria-label="Manual roster rows">
       <div class="results-head">
         <h2>Entered rows</h2>
-        <div class="file-line">
+        <div class="file-line manual-list-controls">
           <label class="compact-field" for="row-player-filter">
             <span>Player</span>
             <select id="row-player-filter"></select>
           </label>
+          <label class="compact-field" for="row-search">
+            <span>Search Pokémon</span>
+            <input id="row-search" type="search" placeholder="Name, #150, moves, notes…">
+          </label>
+          <label class="compact-field" for="row-sort">
+            <span>Sort by</span>
+            <select id="row-sort">
+              <option value="entry">Original entry order</option>
+              <option value="dex-asc">Pokédex # · low to high</option>
+              <option value="dex-desc">Pokédex # · high to low</option>
+              <option value="cp-desc">CP · high to low</option>
+              <option value="cp-asc">CP · low to high</option>
+              <option value="date-desc">Date added · newest first</option>
+              <option value="date-asc">Date added · oldest first</option>
+            </select>
+          </label>
           <button id="clear-rows-button" type="button">Clear rows</button>
         </div>
       </div>
+      <p id="manual-view-count" class="subtle" role="status">Showing 0 of 0 Pokémon</p>
+      <p class="subtle">New entries record their date added. Older entries without a saved date show “Not recorded”. Sorting and search do not change your roster or CSV order.</p>
       <div class="table-wrap">
         <table class="manual-table">
           <thead>
@@ -171,6 +189,7 @@
               <th>IVs</th>
               <th>Moves</th>
               <th>Tags</th>
+              <th>Date added</th>
               <th>Actions</th>
             </tr>
           </thead>

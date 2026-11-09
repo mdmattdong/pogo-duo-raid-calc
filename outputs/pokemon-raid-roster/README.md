@@ -226,3 +226,29 @@ and preserves eligibility; active-buddy selection happens in the raid calculator
 Sources: [Official Best Buddy overview](https://www.pokemon.com/uk/strategy/tips-to-make-the-most-of-buddy-adventure-in-pokemon-go),
 [buddy level boost guide](https://pokemongohub.net/post/guide/go-hub-guide-to-buddy-interactions-in-pokemon-go/),
 and [official Mega and Best Buddy boost stacking](https://niantic.helpshift.com/hc/en/6-pokemon-go/faq/3334-using-a-mega-evolved-pokemon/).
+
+## Manual roster search and sorting
+
+Under **Entered rows**, use **Search Pokémon** together with the existing player
+filter. Search names, forms, accounts, moves, notes, tags, or CP. Use `#150` for
+an exact Pokédex number; multiple words must all match. The list shows the
+Pokédex number beneath each Pokémon's name and a count of visible rows.
+
+**Sort by** supports original entry order, Pokédex number ascending/descending,
+CP ascending/descending, and date added newest/oldest. Equal values keep their
+original order. Unknown numbers, CP, or dates sort after known values in either
+direction. When saved CP is blank but species, permanent level, and IVs are
+available, the list displays and sorts by calculated CP, labeled **Calculated
+CP**, without changing the stored value.
+
+New manual entries get an ISO timestamp in `date_added`; editing retains that
+original timestamp. Existing entries without a recorded date show **Not
+recorded** and are not assigned a made-up creation date. Dates are displayed in
+the browser's local time. The timestamp survives browser saves, manual CSV
+exports/imports, and ordinary roster edits. An older shared CSV with no date
+does not erase timestamps from an aligned manual roster.
+
+Search and sorting change only the visible list. The saved roster, CSV export,
+and raid row references remain in original order. Editing and removing from a
+sorted or filtered list still target the original individual Pokémon. Export
+continues to include the full roster, including rows hidden by filters.

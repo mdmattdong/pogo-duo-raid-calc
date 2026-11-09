@@ -1334,3 +1334,12 @@ body.quick-edit-open {
 
 .buddy-recommendation { margin: 12px 0; padding: 12px; border: 1px solid var(--accent); border-radius: 10px; }
 .buddy-badge { color: var(--accent); font-size: 0.8rem; font-weight: 700; margin: 4px 0; }
+
+.manual-list-controls { align-items: flex-end; }
+.manual-list-controls .compact-field { display: grid; gap: 4px; color: var(--muted); }
+.manual-list-controls input { min-width: 200px; }
+.manual-list-controls select { min-width: 160px; min-height: 42px; background: var(--surface); color: var(--text); border-color: var(--border); }
+@media (max-width: 600px) {
+  .manual-list-controls .compact-field { width: 100%; }
+  .manual-list-controls input, .manual-list-controls select { min-width: 0; }
+}

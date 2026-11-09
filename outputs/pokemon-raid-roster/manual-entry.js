@@ -49,7 +49,7 @@ const CPM = [
 
 const CSV_HEADERS = [
   "account", "name", "form", "level", "atk_iv", "def_iv", "hp_iv",
-  "shadow", "purified", "fast_move", "charged_move", "charged_move_2", "cp", "can_mega", "mega_forms", "super_max_forms", "notes", "best_buddy_eligible"
+  "shadow", "purified", "fast_move", "charged_move", "charged_move_2", "cp", "can_mega", "mega_forms", "super_max_forms", "notes", "best_buddy_eligible", "date_added"
 ];
 
 const DEFAULT_PLAYER_NAMES = ["Main", "Alt"];
@@ -70,6 +70,8 @@ const state = {
   rows: [],
   playerNames: [...DEFAULT_PLAYER_NAMES],
   rowPlayerFilter: ALL_PLAYERS_VALUE,
+  rowSearch: "",
+  rowSort: "entry",
   lastSelectedPlayer: DEFAULT_PLAYER_NAMES[0],
   selectedPokemon: null,
   inferenceMatches: [],
@@ -101,7 +103,7 @@ function bindElements() {
     "manual-row-count", "manual-account-count", "manual-mega-count",
     "manual-messages", "manual-rows-body", "pokemon-suggestions",
     "copy-csv-button", "download-csv-button", "use-roster-button",
-    "clear-rows-button", "row-player-filter"
+    "clear-rows-button", "row-player-filter", "row-search", "row-sort", "manual-view-count"
   ]) {
     el[toCamel(id)] = document.getElementById(id);
   }
@@ -111,6 +113,14 @@ function setupControls() {
   renderHiddenPowerTypeOptions();
   el.entryAccount.addEventListener("change", handleEntryPlayerChange);
   el.rowPlayerFilter.addEventListener("change", handleRowPlayerFilterChange);
+  el.rowSearch.addEventListener("input", () => {
+    state.rowSearch = el.rowSearch.value;
+    renderRows();
+  });
+  el.rowSort.addEventListener("change", () => {
+    state.rowSort = el.rowSort.value;
+    renderRows();
+  });
   el.entryName.addEventListener("input", () => {
     handlePokemonInput();
     renderPokemonSuggestions();
@@ -258,6 +268,7 @@ async function loadData() {
     state.ready = true;
     setStatus(`Ready: ${state.rosterPokemon.length.toLocaleString()} roster forms`, "ready");
     handlePokemonInput();
+    renderRows();
   } catch (error) {
     setStatus("Could not load Pokemon data", "error");
     showMessage(`Data load failed: ${error.message}`, "error");
@@ -682,9 +693,11 @@ function saveCurrentEntry() {
   }
 
   if (state.editingIndex === null) {
+    row.date_added = new Date().toISOString();
     state.rows.push(row);
     showMessage(`Added ${row.name}.`, "success");
   } else {
+    row.date_added = state.rows[state.editingIndex].date_added || "";
     state.rows[state.editingIndex] = row;
     showMessage(`Updated ${row.name}.`, "success");
   }
@@ -837,35 +850,35 @@ function renderRows() {
   el.manualAccountCount.textContent = unique(state.rows.map(row => row.account)).length.toString();
   el.manualMegaCount.textContent = state.rows.filter(row => parseBoolean(row.can_mega)).length.toString();
 
-  const indexedRows = state.rows.map((row, index) => ({row, index}));
-  const visibleRows = state.rowPlayerFilter === ALL_PLAYERS_VALUE
-    ? indexedRows
-    : indexedRows.filter(item => samePlayer(item.row.account, state.rowPlayerFilter));
+  const visibleRows = getVisibleManualRows();
+  el.manualViewCount.textContent = `Showing ${visibleRows.length} of ${state.rows.length} Pokémon`;
 
   if (!state.rows.length) {
-    el.manualRowsBody.innerHTML = `<tr><td colspan="7" class="subtle">No manual rows yet.</td></tr>`;
+    el.manualRowsBody.innerHTML = `<tr><td colspan="8" class="subtle">No manual rows yet.</td></tr>`;
     return;
   }
 
   if (!visibleRows.length) {
-    el.manualRowsBody.innerHTML = `<tr><td colspan="7" class="subtle">No rows for ${escapeHtml(state.rowPlayerFilter)}.</td></tr>`;
+    el.manualRowsBody.innerHTML = `<tr><td colspan="8" class="subtle">No Pokémon match your search and player filter.</td></tr>`;
     return;
   }
 
-  el.manualRowsBody.innerHTML = visibleRows.map(({row, index}) => {
+  el.manualRowsBody.innerHTML = visibleRows.map(({row, index, dexNumber, cp, calculatedCp}) => {
     const tags = [
       parseBoolean(row.shadow) ? "Shadow" : "",
       parseBoolean(row.purified) ? "Purified" : "",
-      formatManualMegaTag(row)
+      formatManualMegaTag(row),
+      parseBoolean(row.best_buddy_eligible) ? "Best Buddy eligible" : ""
     ].filter(Boolean).join(" / ") || "-";
     const isEditing = state.editingIndex === index;
     return `<tr class="${isEditing ? "is-editing" : ""}" data-row-index="${index}" tabindex="0" aria-label="Edit ${escapeAttr(displayRowName(row))}">
       <td>${escapeHtml(row.account)}</td>
-      <td><div class="pokemon-name">${escapeHtml(displayRowName(row))}</div><div class="subtle">${escapeHtml(row.form || "Normal")}</div></td>
-      <td>${escapeHtml(row.cp || "-")}<div class="subtle">HP ${escapeHtml(row.current_hp || "?")} · Lv ${escapeHtml(row.level || "?")}</div></td>
+      <td><div class="pokemon-name">${escapeHtml(displayRowName(row))}</div><div class="subtle">${dexNumber !== null ? `#${dexNumber} · ` : ""}${escapeHtml(row.form || "Normal")}</div></td>
+      <td>${cp !== null ? cp.toLocaleString() : "-"}${calculatedCp ? `<div class="subtle">Calculated CP</div>` : ""}<div class="subtle">HP ${escapeHtml(row.current_hp || "?")} · Lv ${escapeHtml(row.level || "?")}</div></td>
       <td>${escapeHtml(row.atk_iv)}/${escapeHtml(row.def_iv)}/${escapeHtml(row.hp_iv)}</td>
       <td>${escapeHtml(formatManualRowMoves(row))}</td>
       <td>${escapeHtml(tags)}</td>
+      <td>${escapeHtml(formatDateAdded(row.date_added))}</td>
       <td>
         <div class="row-actions">
           <button type="button" data-action="edit" data-index="${index}">Edit</button>
@@ -874,6 +887,61 @@ function renderRows() {
       </td>
     </tr>`;
   }).join("");
+}
+
+function getManualRowMetadata(row, index) {
+  const matches = state.pokemonIndex.get(cleanName(row.name)) || [];
+  const pokemon = pickPokemonMatch(matches, row.form || "Normal");
+  const enteredCp = Number(String(row.cp || "").replace(/,/g, ""));
+  let cp = enteredCp > 0 && Number.isFinite(enteredCp) ? enteredCp : null;
+  let calculatedCp = false;
+  const level = Number(row.level);
+  if (cp === null && pokemon && level >= 1 && level <= 51) {
+    cp = getPokemonCP(getPokemonStats(pokemon, level, {
+      atk: Number(row.atk_iv), def: Number(row.def_iv), hp: Number(row.hp_iv)
+    }));
+    calculatedCp = Number.isFinite(cp);
+    if (!calculatedCp) cp = null;
+  }
+  const timestamp = Date.parse(row.date_added || "");
+  return {row, index, dexNumber: pokemon?.id ?? null, cp, calculatedCp,
+    added: Number.isFinite(timestamp) ? timestamp : null};
+}
+
+function normalizeRowSearch(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function getVisibleManualRows() {
+  const tokens = normalizeRowSearch(state.rowSearch).trim().split(/\s+/).filter(Boolean);
+  const rows = state.rows.map(getManualRowMetadata).filter(item => {
+    const {row, dexNumber, cp} = item;
+    if (state.rowPlayerFilter !== ALL_PLAYERS_VALUE && !samePlayer(row.account, state.rowPlayerFilter)) return false;
+    const haystack = normalizeRowSearch([
+      displayRowName(row), row.form, row.account, row.notes, row.fast_move, row.charged_move,
+      row.charged_move_2, dexNumber, cp, parseBoolean(row.shadow) ? "shadow" : "",
+      parseBoolean(row.purified) ? "purified" : "", formatManualMegaTag(row),
+      parseBoolean(row.best_buddy_eligible) ? "best buddy eligible" : ""
+    ].join(" "));
+    return tokens.every(token => /^#\d+$/.test(token) ? dexNumber === Number(token.slice(1)) : haystack.includes(token));
+  });
+  const sorts = {"dex-asc": ["dexNumber", 1], "dex-desc": ["dexNumber", -1],
+    "cp-desc": ["cp", -1], "cp-asc": ["cp", 1],
+    "date-desc": ["added", -1], "date-asc": ["added", 1]};
+  const sort = sorts[state.rowSort];
+  if (sort) rows.sort((a, b) => {
+    const [key, direction] = sort;
+    // Missing data always follows known values in either direction.
+    if (a[key] === null || b[key] === null) return a[key] === b[key] ? a.index - b.index : a[key] === null ? 1 : -1;
+    return direction * (a[key] - b[key]) || a.index - b.index;
+  });
+  return rows;
+}
+
+function formatDateAdded(value) {
+  const timestamp = Date.parse(value || "");
+  if (!Number.isFinite(timestamp)) return "Not recorded";
+  return new Date(timestamp).toLocaleString(undefined, {year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"});
 }
 
 function getManualCSV() {
@@ -1016,7 +1084,8 @@ function reconcileSavedRows(manualRows, sharedRows) {
     if (aligned) {
       return sharedRows.map((row, index) => ({
         ...row,
-        current_hp: manualRows[index].current_hp || row.current_hp
+        current_hp: manualRows[index].current_hp || row.current_hp,
+        date_added: row.date_added || manualRows[index].date_added || ""
       }));
     }
   }
@@ -1126,6 +1195,7 @@ function parseCSV(text) {
 function normalizeHeader(header) {
   const key = cleanName(header);
   const aliases = {
+    dateadded: "date_added", addedat: "date_added", createdat: "date_added",
     acct: "account", trainer: "account", trainername: "account", profile: "account",
     pokemon: "name", species: "name", mon: "name", nickname: "name",
     lvl: "level", pokemonlevel: "level",
@@ -1156,6 +1226,7 @@ function normalizeStoredRow(row = {}) {
   const shadowPrefix = /^\s*shadow\s+/i.test(String(row.name || row.pokemon || ""));
   return {
     account: String(row.account || "Main").trim() || "Main",
+    date_added: String(row.date_added || row.created_at || "").trim(),
     name,
     form: String(row.form || "Normal").trim() || "Normal",
     level: String(row.level || "").trim(),
