@@ -267,3 +267,15 @@ saving them does not change roster data. Continue using the same browser profile
 and app address. If an old boss or move is no longer available in the loaded
 data, the app falls back to supported defaults. Invalid or inaccessible saved
 preferences do not prevent the calculator from loading.
+
+## Editing moves on the raid page
+
+Expanded Pokémon under **Roster quick edit** have dropdowns for the fast move
+and both charged moves. They list that Pokémon/form's available moves, including
+Elite/legacy moves regardless of the ranking filter, typed Hidden Power options,
+and Return for eligible purified Pokémon. Blank choices let the calculator
+choose a move or leave the second charged move empty. Existing saved values
+remain selected, including moves not found in current data. Unmatched Pokémon
+retain text inputs. Changing species, form, shadow, or purified status refreshes
+the choices without clearing entered selections. Choose **Save edits** to save
+the moves and recalculate the raid plan.

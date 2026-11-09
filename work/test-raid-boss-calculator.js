@@ -361,3 +361,21 @@ console.log("Raid preferences: boss/shadow/moves, settings, adventure effects, m
 `, context);
 context.localStorage = {getItem() {throw Error("storage blocked");}, setItem() {throw Error("storage full");}};
 vm.runInContext("restoreRaidPreferences(); rememberRaidPreferences();", context);
+
+vm.runInContext(`
+const moveEntry = {shadow: false, purified: false};
+const fastDropdown = renderRosterMoveField("Fast move", "fast_move", "Psycho Cut", mewtwo, moveEntry);
+const chargedDropdown = renderRosterMoveField("Charged move", "charged_move", "Psystrike", mewtwo, moveEntry);
+if (!fastDropdown.includes('<select name="fast_move">') || !fastDropdown.includes('value="Psycho Cut" selected')) throw Error("Fast move must be a dropdown retaining the saved value");
+if (!chargedDropdown.includes('value="Psystrike" selected') || !chargedDropdown.includes("Psystrike (Elite / legacy)")) throw Error("Charged moves must include saved Elite moves regardless of ranking filter");
+if (chargedDropdown.includes('value="Dynamic Punch+"')) throw Error("A base Pokémon must not gain Mega-only moves in its roster dropdown");
+const starmieDropdown = renderRosterMoveField("Fast move", "fast_move", "Hidden Power Ice", state.pokemon.find(p => p.name === "Starmie" && p.form === "Normal"), moveEntry);
+if (!starmieDropdown.includes('value="Hidden Power Ice" selected') || !starmieDropdown.includes('value="Hidden Power Fire"')) throw Error("Hidden Power types must be selectable and preserved");
+const legacyDropdown = renderRosterMoveField("Charged move 2", "charged_move_2", "Previously entered move", mewtwo, moveEntry);
+if (!legacyDropdown.includes('value="Previously entered move" selected') || !legacyDropdown.includes("No second charged move")) throw Error("Unrecognized saved moves must not be discarded");
+if (!renderRosterMoveField("Fast move", "fast_move", "Saved fast", null, moveEntry).includes('value="Saved fast"')) throw Error("Unmatched Pokémon must retain editable saved moves");
+const purifiedDropdown = renderRosterMoveField("Charged move", "charged_move", "Return", mamoswine, {...moveEntry, purified: true});
+const shadowDropdown = renderRosterMoveField("Charged move", "charged_move", "", mamoswine, {...moveEntry, shadow: true});
+if (!purifiedDropdown.includes('value="Return" selected') || shadowDropdown.includes('value="Return"')) throw Error("Return must respect purified and shadow status");
+console.log("Raid roster move dropdowns: saved moves, legacy choices, typed Hidden Power, purified/shadow pools and unmatched entries passed");
+`, context);

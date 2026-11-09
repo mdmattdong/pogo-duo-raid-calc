@@ -249,6 +249,7 @@ function setupControls() {
   el.raidResults.addEventListener("click", handlePokemonCardClick);
   el.raidRosterBox.addEventListener("click", handleRosterBoxClick);
   el.raidRosterBox.addEventListener("input", handleRosterEditInput);
+  el.raidRosterBox.addEventListener("change", refreshRosterMoveFields);
   el.raidRosterSearch.addEventListener("input", () => {
     state.rosterSearch = el.raidRosterSearch.value.trim();
     rememberRaidPreferences();
@@ -1590,7 +1591,7 @@ function renderRosterEntry(entry, usableEntry, settings) {
 }
 
 function renderRosterEntryDetails(entry, usableEntry, resolvedCp, settings) {
-  const pokemon = usableEntry?.pokemon || null;
+  const pokemon = usableEntry?.pokemon || resolveRosterEntry(entry).pokemon || null;
   const typeText = pokemon?.types?.join(" / ") || "Unmatched";
   const baseStats = pokemon
     ? `${pokemon.stats.baseAttack}/${pokemon.stats.baseDefense}/${pokemon.stats.baseStamina}`
@@ -1614,9 +1615,9 @@ function renderRosterEntryDetails(entry, usableEntry, resolvedCp, settings) {
         ${renderTextField("Atk IV", "atk_iv", entry.ivs.atk, "number", "1")}
         ${renderTextField("Def IV", "def_iv", entry.ivs.def, "number", "1")}
         ${renderTextField("HP IV", "hp_iv", entry.ivs.hp, "number", "1")}
-        ${renderTextField("Fast move", "fast_move", entry.fastMove)}
-        ${renderTextField("Charged move", "charged_move", entry.chargedMove)}
-        ${renderTextField("Charged move 2", "charged_move_2", entry.chargedMove2)}
+        ${renderRosterMoveField("Fast move", "fast_move", entry.fastMove, pokemon, entry)}
+        ${renderRosterMoveField("Charged move", "charged_move", entry.chargedMove, pokemon, entry)}
+        ${renderRosterMoveField("Charged move 2", "charged_move_2", entry.chargedMove2, pokemon, entry)}
         ${renderTextField("Notes", "notes", entry.notes)}
         <label class="check-field"><input type="checkbox" name="shadow" ${entry.shadow ? "checked" : ""}> Shadow</label>
         <label class="check-field"><input type="checkbox" name="purified" ${entry.purified ? "checked" : ""}> Purified</label>
@@ -1697,6 +1698,42 @@ function formatMegaAvailability(entry, pokemon) {
   return selected.length === megaForms.length
     ? "All Mega/Primal forms ready"
     : `Mega ready: ${selected.map(megaFormToken).join(", ")}`;
+}
+
+function renderRosterMoveField(label, name, value, pokemon, entry) {
+  const saved = String(value || "");
+  let control;
+  if (!pokemon) {
+    control = `<input type="text" name="${escapeAttr(name)}" value="${escapeAttr(saved)}">`;
+  } else {
+    // Editing the roster must expose legal legacy moves even if the ranking
+    // settings currently exclude Elite moves. Temporary Mega moves stay form-specific.
+    const options = getPokemonMoveOptions(pokemon, entry.shadow, true, entry.purified);
+    const moves = name === "fast_move" ? options.fast : options.charged;
+    const names = unique(moves.map(move => move.name)).sort((a, b) => a.localeCompare(b));
+    const elite = name === "fast_move" ? pokemon.elite_fm || [] : pokemon.elite_cm || [];
+    const empty = name === "charged_move_2" ? "No second charged move" : "Let calculator choose";
+    const choices = [{value: "", label: empty}, ...names.map(move => ({
+      value: move, label: move + (elite.includes(move) ? " (Elite / legacy)" : "")
+    }))];
+    if (saved && !names.includes(saved)) choices.push({value: saved, label: `${saved} (saved move)`});
+    control = `<select name="${escapeAttr(name)}">${choices.map(option => `<option value="${escapeAttr(option.value)}"${option.value === saved ? " selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}</select>`;
+  }
+  return `<label class="edit-field" data-roster-move-field="${escapeAttr(name)}"><span>${escapeHtml(label)}</span>${control}</label>`;
+}
+
+function refreshRosterMoveFields(event) {
+  const field = event.target;
+  if (!["name", "form", "shadow", "purified"].includes(field?.name)) return;
+  const form = field.closest(".roster-edit-form");
+  if (!form) return;
+  const {entry, pokemon} = getRosterFormSnapshot(form, Number(form.dataset.entryUid));
+  entry.shadow = getRosterFormField(form, "shadow")?.checked || /^shadow\s/i.test(entry.rawName);
+  entry.purified = getRosterFormField(form, "purified")?.checked || false;
+  for (const [name, label] of [["fast_move", "Fast move"], ["charged_move", "Charged move"], ["charged_move_2", "Charged move 2"]]) {
+    const current = getRosterFormField(form, name);
+    if (current) current.closest("[data-roster-move-field]").outerHTML = renderRosterMoveField(label, name, current.value, pokemon, entry);
+  }
 }
 
 function renderTextField(label, name, value, type = "text", step = null) {
