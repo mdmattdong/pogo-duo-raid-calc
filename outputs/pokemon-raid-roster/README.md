@@ -252,3 +252,18 @@ Search and sorting change only the visible list. The saved roster, CSV export,
 and raid row references remain in original order. Editing and removing from a
 sorted or filtered list still target the original individual Pokémon. Export
 continues to include the full roster, including rows hidden by filters.
+
+## Remembered raid settings
+
+The raid page saves its selected boss, shadow option, boss fast/charged moves,
+ranking metric, party size, relobby time, power-up target level, dodging mode
+and success rate, Elite/current-move toggles, per-account adventure effects,
+and roster search. Returning from manual entry or the evaluator, or reloading
+the raid page, restores those selections after Pokémon data loads. Numeric
+edits are saved as you type, including before navigating away.
+
+Preferences use a separate browser storage key, `pokemonRaidBossPreferencesV1`;
+saving them does not change roster data. Continue using the same browser profile
+and app address. If an old boss or move is no longer available in the loaded
+data, the app falls back to supported defaults. Invalid or inaccessible saved
+preferences do not prevent the calculator from loading.

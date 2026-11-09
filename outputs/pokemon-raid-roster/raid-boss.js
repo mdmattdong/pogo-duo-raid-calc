@@ -82,6 +82,7 @@ const SEREBII_FORM_SUFFIXES = {
 const PENDING_CSV_KEY = "pokemonRaidRosterPendingCsv";
 const CURRENT_CSV_KEY = "pokemonRaidRosterCurrentCsv";
 const PREVIOUS_CSV_KEY = "pokemonRaidRosterPreviousCsv";
+const RAID_PREFERENCES_KEY = "pokemonRaidBossPreferencesV1";
 const SUPPRESS_SAMPLE_KEY = "pokemonRaidRosterSuppressSample";
 const RAID_BOSS_TIERS = new Set([4, 5, 6, 7]);
 const RAID_TIER_CONFIGS = new Map([
@@ -213,6 +214,12 @@ function bindElements() {
 }
 
 function setupControls() {
+  for (const input of [el.raidRelobbyTime, el.raidUpgradeLevel, el.raidDodgeSuccess]) {
+    input.addEventListener("input", rememberRaidPreferences);
+  }
+  if (typeof window !== "undefined" && window.addEventListener) {
+    window.addEventListener("pagehide", rememberRaidPreferences);
+  }
   el.raidCsvFile.addEventListener("change", async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -244,6 +251,7 @@ function setupControls() {
   el.raidRosterBox.addEventListener("input", handleRosterEditInput);
   el.raidRosterSearch.addEventListener("input", () => {
     state.rosterSearch = el.raidRosterSearch.value.trim();
+    rememberRaidPreferences();
     renderRosterBox(state.currentRosterEntries, state.currentUsableByUid, state.currentSettings || readSettings());
   });
   el.quickEditLevel.addEventListener("input", () => syncQuickEditLevelCP("level"));
@@ -288,7 +296,7 @@ async function loadData() {
     state.raidBosses = state.raidBossGroups.map(group => group.base);
     state.bossGroupByKey = new Map(state.raidBossGroups.map(group => [group.key, group]));
     renderBossSelect();
-    renderBossMoveOptions(getSelectedBoss());
+    restoreRaidPreferences();
     state.ready = true;
     setStatus(`Ready: ${state.raidBossGroups.length.toLocaleString()} raid bosses`, "ready");
     calculate();
@@ -425,6 +433,7 @@ function calculate() {
 
   renderAdventureEffectControls(unique(usableEntries.map(entry => entry.account)));
   const settings = readSettings();
+  rememberRaidPreferences();
   const boss = getSelectedBoss();
   const plan = boss ? buildRaidPlan(usableEntries, boss, settings) : null;
   state.currentPlan = plan;
@@ -433,6 +442,82 @@ function calculate() {
   state.currentUsableByUid = new Map(usableEntries.map(entry => [entry.uid, entry]));
   state.currentSettings = settings;
   renderResults(plan, rows.entries.length, usableEntries.length, messages, settings);
+}
+
+function rememberRaidPreferences() {
+  if (!state.ready || typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(RAID_PREFERENCES_KEY, JSON.stringify({
+      version: 1,
+      bossKey: el.bossSelect.value,
+      shadowBoss: el.bossShadowToggle.checked,
+      fastMove: el.bossFastMove.value,
+      chargedMove: el.bossChargedMove.value,
+      metric: el.raidMetricSelect.value,
+      partySize: el.raidPartySize.value,
+      relobbyTime: el.raidRelobbyTime.value,
+      upgradeLevel: el.raidUpgradeLevel.value,
+      dodgeMode: el.raidDodgeMode.value,
+      dodgeSuccess: el.raidDodgeSuccess.value,
+      allowElite: el.raidAllowElite.checked,
+      useCurrentMoves: el.raidUseCurrentMoves.checked,
+      rosterSearch: el.raidRosterSearch.value,
+      accountEffects: [...state.adventureEffects.entries()]
+    }));
+  } catch (error) {
+    // Blocked or full browser storage must not interrupt raid calculations.
+  }
+}
+
+function restoreRaidPreferences() {
+  let saved = null;
+  try {
+    if (typeof localStorage !== "undefined") saved = JSON.parse(localStorage.getItem(RAID_PREFERENCES_KEY) || "null");
+  } catch (error) {
+    // Keep normal defaults if saved preferences cannot be read.
+  }
+  if (!saved || typeof saved !== "object" || saved.version !== 1) {
+    renderBossMoveOptions(getSelectedBoss());
+    return;
+  }
+  const knownBoss = state.bossGroupByKey.has(saved.bossKey);
+  if (knownBoss) el.bossSelect.value = saved.bossKey;
+  el.bossShadowToggle.checked = knownBoss && saved.shadowBoss === true;
+  updateBossShadowToggle();
+  renderBossMoveOptions(getSelectedBoss());
+  const boss = getSelectedBoss();
+  // Boss moves are restored only after the selected boss/shadow form is ready.
+  el.bossFastMove.value = knownBoss && (boss?.fm || []).includes(saved.fastMove) ? saved.fastMove : "";
+  el.bossChargedMove.value = knownBoss && (boss?.cm || []).includes(saved.chargedMove) ? saved.chargedMove : "";
+  for (const [field, key, values] of [
+    [el.raidMetricSelect, "metric", ["eDPS", "DPS", "TDO"]],
+    [el.raidPartySize, "partySize", ["1", "2", "3", "4"]],
+    [el.raidDodgeMode, "dodgeMode", ["none", "charged", "all"]]
+  ]) {
+    if (values.includes(String(saved[key]))) field.value = String(saved[key]);
+  }
+  for (const [field, key, min, max] of [
+    [el.raidRelobbyTime, "relobbyTime", 0, 300],
+    [el.raidUpgradeLevel, "upgradeLevel", 1, 51],
+    [el.raidDodgeSuccess, "dodgeSuccess", 0, 100]
+  ]) {
+    const value = toNumber(saved[key]);
+    if (value !== null) field.value = String(clamp(value, min, max));
+  }
+  if (typeof saved.allowElite === "boolean") el.raidAllowElite.checked = saved.allowElite;
+  if (typeof saved.useCurrentMoves === "boolean") el.raidUseCurrentMoves.checked = saved.useCurrentMoves;
+  if (typeof saved.rosterSearch === "string") {
+    el.raidRosterSearch.value = saved.rosterSearch;
+    state.rosterSearch = saved.rosterSearch.trim();
+  }
+  if (Array.isArray(saved.accountEffects)) {
+    for (const item of saved.accountEffects) {
+      if (!Array.isArray(item) || typeof item[0] !== "string" || !item[1] || typeof item[1] !== "object") continue;
+      const effects = makeAdventureEffectState();
+      for (const key of Object.keys(effects)) effects[key] = item[1][key] === true;
+      state.adventureEffects.set(item[0], effects);
+    }
+  }
 }
 
 function readSettings() {

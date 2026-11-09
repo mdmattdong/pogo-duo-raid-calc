@@ -24,6 +24,7 @@ function makeElement() {
     textContent: "",
     className: "",
     hidden: false,
+    get options() { return [...this.innerHTML.matchAll(/<option value="([^"]*)"/g)].map(match => ({value: match[1]})); },
     attributes: {},
     addEventListener() {},
     querySelectorAll() {
@@ -296,3 +297,67 @@ __result.shadow = {
 context.__read = file => fs.readFileSync(file, "utf8");
 vm.runInContext(`${appCode}\n${testCode}`, context);
 console.log(JSON.stringify(context.__result, null, 2));
+
+const preferencesStorage = new Map([["pokemonRaidRosterCurrentCsv", "preserve exact roster"]]);
+context.localStorage = {
+  getItem(key) { return preferencesStorage.get(key) ?? null; },
+  setItem(key, value) { preferencesStorage.set(key, value); }
+};
+vm.runInContext(`
+const savedBoss = shadowMewtwoGroup;
+el.bossSelect.value = savedBoss.key;
+el.bossShadowToggle.checked = true;
+updateBossShadowToggle();
+renderBossMoveOptions(getSelectedBoss());
+el.bossFastMove.value = savedBoss.shadow.fm[0];
+el.bossChargedMove.value = savedBoss.shadow.cm[0];
+el.raidMetricSelect.value = "TDO";
+el.raidPartySize.value = "4";
+el.raidRelobbyTime.value = "0";
+el.raidUpgradeLevel.value = "47.5";
+el.raidDodgeMode.value = "charged";
+el.raidDodgeSuccess.value = "65";
+el.raidAllowElite.checked = false;
+el.raidUseCurrentMoves.checked = false;
+el.raidRosterSearch.value = "  Mewtwo  ";
+state.adventureEffects = new Map([["Main", {zacianBlade: true, zamazentaBash: false, mewtwoXDynamicPunch: true}]]);
+rememberRaidPreferences();
+const savedPreferences = localStorage.getItem(RAID_PREFERENCES_KEY);
+state.ready = false;
+el.raidMetricSelect.value = "DPS";
+rememberRaidPreferences();
+if (localStorage.getItem(RAID_PREFERENCES_KEY) !== savedPreferences) throw Error("Loading defaults must not overwrite saved preferences");
+state.ready = true;
+el.bossSelect.value = kyuremGroup.key;
+el.bossShadowToggle.checked = false;
+el.bossFastMove.value = "";
+el.bossChargedMove.value = "";
+el.raidMetricSelect.value = "eDPS";
+el.raidPartySize.value = "2";
+el.raidRelobbyTime.value = "10";
+el.raidUpgradeLevel.value = "40";
+el.raidDodgeMode.value = "none";
+el.raidDodgeSuccess.value = "100";
+el.raidAllowElite.checked = true;
+el.raidUseCurrentMoves.checked = true;
+el.raidRosterSearch.value = "";
+state.adventureEffects = new Map();
+restoreRaidPreferences();
+if (el.bossSelect.value !== savedBoss.key || !getSelectedBoss().shadow) throw Error("Selected boss and shadow form must restore before move choices");
+if (el.bossFastMove.value !== savedBoss.shadow.fm[0] || el.bossChargedMove.value !== savedBoss.shadow.cm[0]) throw Error("Saved boss moves must restore");
+if (el.raidMetricSelect.value !== "TDO" || el.raidPartySize.value !== "4" || el.raidRelobbyTime.value !== "0" || el.raidUpgradeLevel.value !== "47.5") throw Error("Ranking, party, zero relobby time, and fractional target level must restore");
+if (el.raidDodgeMode.value !== "charged" || el.raidDodgeSuccess.value !== "65" || el.raidAllowElite.checked || el.raidUseCurrentMoves.checked) throw Error("Dodge values and unchecked toggles must restore exactly");
+if (state.rosterSearch !== "Mewtwo" || !state.adventureEffects.get("Main").mewtwoXDynamicPunch || !state.adventureEffects.get("Main").zacianBlade) throw Error("Search and per-account adventure effects must restore");
+if (localStorage.getItem(CURRENT_CSV_KEY) !== "preserve exact roster") throw Error("Preferences must never rewrite roster data");
+localStorage.setItem(RAID_PREFERENCES_KEY, JSON.stringify({version: 1, bossKey: "removed-boss", fastMove: "invalid", chargedMove: "invalid", metric: "invalid", relobbyTime: -5, upgradeLevel: 500, dodgeSuccess: 500}));
+el.bossSelect.value = kyuremGroup.key;
+el.raidMetricSelect.value = "DPS";
+restoreRaidPreferences();
+if (el.bossSelect.value !== kyuremGroup.key || el.bossFastMove.value || el.bossChargedMove.value || el.bossShadowToggle.checked) throw Error("Unavailable bosses and moves must fall back safely");
+if (el.raidMetricSelect.value !== "DPS" || el.raidRelobbyTime.value !== "0" || el.raidUpgradeLevel.value !== "51" || el.raidDodgeSuccess.value !== "100") throw Error("Invalid settings must use defaults or clamp to supported bounds");
+localStorage.setItem(RAID_PREFERENCES_KEY, "broken json");
+restoreRaidPreferences();
+console.log("Raid preferences: boss/shadow/moves, settings, adventure effects, missing data, bounds, corrupt JSON and roster preservation passed");
+`, context);
+context.localStorage = {getItem() {throw Error("storage blocked");}, setItem() {throw Error("storage full");}};
+vm.runInContext("restoreRaidPreferences(); rememberRaidPreferences();", context);
